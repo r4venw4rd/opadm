@@ -120,12 +120,11 @@ allowlist, message 10-1000. Limit: 16 KB body; bilinmeyen alan reddedilir.
 
 ## Bilinen eksikler
 
-- CSRF token yok (JSON-only + Content-Type kontrolü + same-origin; tam token bilinçli olarak eklenmedi).
-- Rate limit in-memory: restart'ta sıfırlanır, çok instanceta paylaşılmaz.
-- Proxy IP başlıkları (`CF-Connecting-IP`, `X-Forwarded-For`) güvenilir proxy varsayar; sahte başlıkla limit atlatılabilir.
-- E-posta doğrulaması yok (sadece format kontrolü; onay e-postası gönderilmez).
-- Kayıt görüntüleme/yönetim paneli yok; kontrol `sqlite3` ile.
-- IP hash tuzsuz SHA-256 (kısa uzayda tersine çevrilebilir; bilerek minimal tutuldu).
+- CSRF token yok (JSON-only + Content-Type kontrolü + same-origin ile kısmen hafifletildi).
+- Rate limit in-memory: restart'ta sıfırlanır, çok instance'ta çalışmaz; süresi dolan IP'lerin boş map girdileri temizlenmiyor (uzun çalışmada yavaş bellek büyümesi).
+- Proxy IP başlıklarına (`CF-Connecting-IP`, `X-Forwarded-For`) güveniyor; sahte başlıkla limit atlatılabilir.
+- E-posta onayı yok (sadece format kontrolü), admin panel yok (kontrol `sqlite3` ile), IP hash tuzsuz SHA-256.
+- SQLite `MaxOpenConns(1)`: düşük trafik için doğru, ölçeklenmez. TLS uygulamada yok, tunnel'a (Cloudflare) emanet.
 
 ## Varsayımlar
 
