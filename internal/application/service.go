@@ -89,6 +89,7 @@ type Check struct {
 type Limiter interface {
 	Peek(ip string) (remaining int, limited bool)
 	Allow(ip string) bool
+	Release(ip string)
 	Size() int
 	Quota() (max int, window string)
 }
@@ -148,6 +149,7 @@ func (s *Service) RunDemo(lim Limiter) DemoResult {
 
 	limitPass, limitDetail := timed(func() (bool, string) {
 		probe := "demo-probe-" + runID
+		defer lim.Release(probe) // iz bırakma: sayaç gerçek trafiği göstersin
 		before, limited := lim.Peek(probe)
 		max, window := lim.Quota()
 		if limited || before != max {
@@ -158,7 +160,7 @@ func (s *Service) RunDemo(lim Limiter) DemoResult {
 		if before-after != 1 {
 			return false, "delta tutmadı"
 		}
-		return true, "önce " + strconv.Itoa(before) + ", 1 yakıldı, sonra " + strconv.Itoa(after) + " / " + window + " pencere"
+		return true, "önce " + strconv.Itoa(before) + ", 1 yakıldı, sonra " + strconv.Itoa(after) + " / " + window + " pencere (probe temizlendi)"
 	})
 
 	dbPass, dbDetail := timed(func() (bool, string) {
@@ -170,7 +172,7 @@ func (s *Service) RunDemo(lim Limiter) DemoResult {
 		if i := strings.Index(ver, " on "); i > 0 {
 			ver = ver[:i]
 		}
-		return true, ver + " · " + info.Database + " · " + info.Now + " · " + strconv.FormatInt(info.PingMs, 10) + "ms"
+		return true, ver + " · " + info.Database + " · " + info.Now + " · " + strconv.FormatInt(info.PingUs, 10) + "µs"
 	})
 
 	writePass, writeDetail := timed(func() (bool, string) {
@@ -201,7 +203,7 @@ func (s *Service) RunDemo(lim Limiter) DemoResult {
 			{ID: "ratelimit", Name: "Hız limiti", Pass: limitPass, Detail: limitDetail},
 			{ID: "database", Name: "Veritabanı", Pass: dbPass, Detail: dbDetail},
 			{ID: "write-proof", Name: "Yazma kanıtı", Pass: writePass, Detail: writeDetail},
-			{ID: "limiter-state", Name: "Limiter durumu", Pass: true, Detail: strconv.Itoa(lim.Size()) + " izlenen IP"},
+			{ID: "limiter-state", Name: "Limiter durumu", Pass: true, Detail: strconv.Itoa(lim.Size()) + " izlenen IP (demo probeleri temizlenir)"},
 		},
 	}
 }

@@ -157,14 +157,15 @@ DB'ye yazmaz, kota yakmaz. Sayfadaki "Canlı demo" bölümü buradan beslenir:
 ```jsonc
 {"ok":true,"run_id":"a1b2c3d4","took_ms":12,"checks":[
   {"id":"validation","name":"Doğrulama","pass":true,"detail":"bozuk örnek 4 hata, sağlam örnek 0 hata, e-posta küçük harf (87µs)"},
-  {"id":"database","name":"Veritabanı","pass":true,"detail":"PostgreSQL 16.4 · postgres · 2026-10-13T13:52:11Z · 3ms"},
+  {"id":"database","name":"Veritabanı","pass":true,"detail":"PostgreSQL 16.4 · postgres · 2026-10-13T13:52:11Z · 412µs"},
   {"id":"write-proof","name":"Yazma kanıtı","pass":true,"detail":"satır #42 yazıldı + geri alındı (önce/sonra: 5/5)"},
   // + csrf, ratelimit (1 probe kotası yakar, delta gösterir), limiter-state
 ]}
 ```
-// Kanıt notları: `database` DB'nin kendi `version()` çıktısıdır; `write-proof`
-// gerçek INSERT + ROLLBACK'tir (sayaç oynamaz); `ratelimit` çalışmaya özel
-// probe anahtarında 1 kota yakıp önce/sonra deltasını gösterir.
+// Kanıt notları: `database` DB'nin kendi `version()` çıktısıdır (µs ping);
+// `write-proof` gerçek INSERT + ROLLBACK'tir (sayaç oynamaz); `ratelimit`
+// çalışmaya özel probe anahtarında 1 kota yakıp önce/sonra deltasını gösterir,
+// sonra probeyi siler (sayaç gerçek trafiği gösterir).
 
 Kurallar: name 2-80, email format + ≤254 (küçük harfe normalize), service
 allowlist, message 10-1000. Limit: 16 KB body; bilinmeyen alan reddedilir.

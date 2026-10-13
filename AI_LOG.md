@@ -101,6 +101,9 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
   koşu kimliği + süreler, DB `version()` çıktısı, gerçek INSERT+ROLLBACK
   (önce/sonra sayaç deltasıyla), probe anahtarında 1 kota yakıp delta gösterme.
   `TestDemo` run_id + check kimlikleri + sayaç oynamaması kilitler.
+- Dümen hissi düzeltmesi **kullanıcı geri bildirimi** ("şu biraz dümen geliyor"):
+  demo probesi `Release` ile siliniyor (sayaç gerçek trafiği gösterir, test kilitli),
+  ping ms→µs ("0ms" yuvarlağı kalktı).
 - Polling yerine soket **kullanıcı önerisi** ("polling ile yaptığın şeyleri
   sokete ekle"): `GET /api/live` WebSocket (hub + 5 sn ticker + kayıt push'u),
   sayfa sokete bağlanır, olmazsa fetch'e düşer (3 deneme cap'i). Vercel

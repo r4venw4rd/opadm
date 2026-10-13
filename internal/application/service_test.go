@@ -151,7 +151,11 @@ func TestSubmit(t *testing.T) {
 func TestRunDemo(t *testing.T) {
 	svc, _ := newSvc()
 	lim := ratelimit.New(10, time.Minute)
+	sizeBefore := lim.Size()
 	checks := svc.RunDemo(lim)
+	if lim.Size() != sizeBefore {
+		t.Fatalf("demo iz bıraktı: önce %d, sonra %d", sizeBefore, lim.Size())
+	}
 	if len(checks.Checks) != 6 {
 		t.Fatalf("%d check, 6 bekleniyordu", len(checks.Checks))
 	}

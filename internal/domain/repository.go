@@ -19,5 +19,5 @@ type DBIdentity struct {
 	Version  string
 	Database string
 	Now      string
-	PingMs   int64
+	PingUs   int64 // mikrosaniye: "0ms" gibi yuvarlak görünen kanıt olmasın
 }

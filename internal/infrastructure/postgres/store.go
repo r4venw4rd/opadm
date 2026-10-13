@@ -143,7 +143,7 @@ func (s *Store) DBInfo() (domain.DBIdentity, error) {
 	if err != nil {
 		return domain.DBIdentity{}, err
 	}
-	return domain.DBIdentity{Version: v, Database: db, Now: now, PingMs: time.Since(start).Milliseconds()}, nil
+	return domain.DBIdentity{Version: v, Database: db, Now: now, PingUs: time.Since(start).Microseconds()}, nil
 }
 
 // ProveWrite, INSERT yolunu gerçek satırla dener, sonra ROLLBACK eder.

@@ -62,6 +62,14 @@ func (l *Limiter) Peek(ip string) (remaining int, limited bool) {
 // Quota, politikayı döndürür (demo detayında gösterilir).
 func (l *Limiter) Quota() (max int, window string) { return l.max, l.window.String() }
 
+// Release, anahtarı siler. Demo probesi işini bitirince çağırır:
+// demo arkadasında iz bırakmaz, sayaç gerçek trafiği gösterir.
+func (l *Limiter) Release(ip string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.hits, ip)
+}
+
 // Cleanup, penceresi dolmuş tüm girdileri siler. StartJanitor periyodik
 // çağırır; testler doğrudan çağırabilir.
 func (l *Limiter) Cleanup() {

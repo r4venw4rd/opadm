@@ -31,3 +31,17 @@ func TestStaleEntryDeletedOnAllow(t *testing.T) {
 		t.Fatalf("Size = %d, istendi 1", l.Size())
 	}
 }
+
+func TestRelease(t *testing.T) {
+	l := New(10, time.Minute)
+	l.Allow("1.1.1.1")
+	l.Allow("2.2.2.2")
+	l.Release("1.1.1.1")
+	if l.Size() != 1 {
+		t.Fatalf("Size = %d, istendi 1", l.Size())
+	}
+	l.Release("yok")
+	if l.Size() != 1 {
+		t.Fatalf("olmayan anahtar Size oynatmamalı: %d", l.Size())
+	}
+}
