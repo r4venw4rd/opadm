@@ -1,0 +1,19 @@
+# systemd ile doğrudan çalıştırma alternatifi (Docker yerine).
+# Kurulum (kullanıcı yapacak):
+#   sudo cp opadm.service /etc/systemd/system/opadm.service
+#   sudo useradd -r -s /usr/sbin/nologin opadm 2>/dev/null || true
+#   sudo mkdir -p /var/lib/opadm && sudo chown opadm:opadm /var/lib/opadm
+#   sudo systemctl daemon-reload && sudo systemctl enable --now opadm
+[Unit]
+Description=opadm landing + talep formu
+After=network.target
+
+[Service]
+User=opadm
+Environment=PORT=8080
+Environment=DB_PATH=/var/lib/opadm/requests.db
+ExecStart=/usr/local/bin/opadm
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+services:
+  opadm:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080" # dışa yalnız tunnel/proxy üzerinden aç
+    environment:
+      PORT: "8080"
+      DB_PATH: "/data/requests.db"
+    volumes:
+      - opadm-data:/data # kalıcı volume şart: kayıplar önlenir
+    restart: unless-stopped
+
+volumes:
+  opadm-data:
