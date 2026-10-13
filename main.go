@@ -61,6 +61,7 @@ func main() {
 	mux.HandleFunc("POST /api/requests", app.Create)
 	mux.HandleFunc("GET /healthz", app.Health)
 	mux.HandleFunc("GET /api/status", app.Status)
+	mux.HandleFunc("GET /api/live", app.Live)
 	mux.HandleFunc("GET /api/demo", app.Demo)
 	mux.HandleFunc("POST /api/auth/signup", app.Signup)
 	mux.HandleFunc("POST /api/auth/login", app.Login)

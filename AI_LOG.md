@@ -92,10 +92,15 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
   application (Submit/Snapshot/RunDemo) + infrastructure (http/postgres/ratelimit);
   handler ince adaptör. `/api/demo` + sayfada "Canlı demo" bölümü: 6 check canlı
   koşar, yazma/kota yok. `go vet` + `go test -race` yeşil (domain/app/http/pg-skip/ratelimit).
-- DDD geçişi (domain/application/infrastructure, ince http adaptörü) + `/api/demo`
-  (6 check, yazma/kota yok) + üyelik (bcrypt, jeton özeti, HttpOnly çerez, giriş
-  arkası demo). Testler: TestAuth + TestAuthFlow (201/409/400/401/me/logout).
-  `go vet` + `go test -race` yeşil.
+- Polling yerine soket **kullanıcı önerisi** ("polling ile yaptığın şeyleri
+  sokete ekle"): `GET /api/live` WebSocket (hub + 5 sn ticker + kayıt push'u),
+  sayfa sokete bağlanır, olmazsa fetch'e düşer (3 deneme cap'i). Vercel
+  serverless soket tutamaz → 501 + fetch fallback (README'de açık). Test:
+  gerçek istemcili `TestPush` (ilk mesaj + push + takılmama) + Origin 403.
+  Uçtan uca soket kanıtı Docker'da kullanıcıya kaldı (yerelde DB yok).
+- Üyelik: users+sessions migration, bcrypt, SHA-256 jeton özeti, HttpOnly çerez,
+  giriş arkası demo (401 kapısı). Testler: TestAuth (application) + TestAuthFlow
+  (HTTP: 201/409/400/401/me/logout/demo-kapısı).
 - Frontend toparlama (kullanıcı fiziksel kısmı güncellemişti, AI mismatch
   avladı): Tailwind CDN silindi (CSP `script-src 'self'` ile bloklanıyordu,
   class da kullanılmıyordu); Google Fonts self-host edildi (`web/fonts/`,

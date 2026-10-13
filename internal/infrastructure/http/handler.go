@@ -11,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coder/websocket"
+
 	"opadm/internal/application"
 	"opadm/internal/domain"
+	"opadm/internal/infrastructure/live"
 	"opadm/internal/infrastructure/postgres"
 	"opadm/internal/infrastructure/ratelimit"
 )
@@ -33,10 +36,15 @@ type App struct {
 	// SecureCookies=1 (Vercel/HTTPS) çereze Secure ekler; yerelde 0 kalır
 	// yoksa tarayıcı http:// üzerinde çerezi saklamaz.
 	SecureCookies bool
+	// LiveHub, /api/live izleyicilerine anlık görüntü iter.
+	LiveHub *live.Hub
 }
 
 func New(svc *application.Service, l *ratelimit.Limiter, trustProxy bool) *App {
-	return &App{Service: svc, Limiter: l, TrustProxy: trustProxy}
+	hub := live.NewHub()
+	never := make(chan struct{}) // süreç ömrü: hub kapanmaz
+	go hub.Run(never)
+	return &App{Service: svc, Limiter: l, TrustProxy: trustProxy, LiveHub: hub}
 }
 
 // NewFromEnv, main.go ve Vercel fonksiyonlarının ortak kurulumudur:
@@ -175,16 +183,16 @@ func (a *App) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"ok": true})
+	a.pushLive() // canlı izleyiciler sayacı hemen görür
 }
 
-// Status, GET /api/status. Kişisel veri içermez.
-func (a *App) Status(w http.ResponseWriter, r *http.Request) {
+// snapshotMap, status + live akışının ortak gövdesidir.
+func (a *App) snapshotMap() (map[string]any, error) {
 	snap, err := a.Service.Snapshot()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false})
-		return
+		return nil, err
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	return map[string]any{
 		"ok":             true,
 		"time":           snap.Time,
 		"uptime_s":       snap.UptimeS,
@@ -195,7 +203,56 @@ func (a *App) Status(w http.ResponseWriter, r *http.Request) {
 		"goroutines":     snap.Goroutines,
 		"cpu":            snap.CPU,
 		"mem_alloc_mb":   snap.MemAllocMB,
-	})
+	}, nil
+}
+
+// pushLive, izleyicilere taze sayacı iter. Hub doluysa düşer;
+// kayıt yolunu asla bekletmez.
+func (a *App) pushLive() {
+	m, err := a.snapshotMap()
+	if err != nil {
+		return
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return
+	}
+	a.LiveHub.Push(b)
+}
+
+// Status, GET /api/status. Kişisel veri içermez.
+func (a *App) Status(w http.ResponseWriter, r *http.Request) {
+	m, err := a.snapshotMap()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, m)
+}
+
+// Live, GET /api/live. WebSocket: bağlan, ilk görüntüyü al, sonra 5 sn'de
+// bir + her kayıtta itilir. Uzun ömürlü süreçte çalışır (binary/Docker);
+// Vercel fonksiyonunda yaşamaz (bkz. README) — istemci fetch'e düşer.
+func (a *App) Live(w http.ResponseWriter, r *http.Request) {
+	if !domain.AllowedOrigin(r.Host, r.Header.Get("Origin"), "") {
+		http.Error(w, "Geçersiz istek kaynağı.", http.StatusForbidden)
+		return
+	}
+	conn, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		return
+	}
+	a.LiveHub.Attach(r.Context(), conn, func() []byte {
+		m, err := a.snapshotMap()
+		if err != nil {
+			return nil
+		}
+		b, err := json.Marshal(m)
+		if err != nil {
+			return nil
+		}
+		return b
+	}, 5*time.Second)
 }
 
 // Demo, GET /api/demo. Giriş ister: işveren üye olup girer, özellikleri

@@ -511,3 +511,14 @@ func TestAuthFlow(t *testing.T) {
 		t.Fatalf("çıkış sonrası me: kod = %d, istendi 401", r2.Code)
 	}
 }
+
+func TestLiveOriginGate(t *testing.T) {
+	app := newTestApp(t, 100)
+	req := httptest.NewRequest("GET", "/api/live", nil)
+	req.Header.Set("Origin", "https://kotusu.ornek")
+	rec := httptest.NewRecorder()
+	app.Live(rec, req)
+	if rec.Code != 403 {
+		t.Fatalf("yabancı Origin: kod = %d, istendi 403", rec.Code)
+	}
+}

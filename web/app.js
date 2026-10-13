@@ -88,6 +88,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   const btn = $("submit-btn");
   const statusBtn = $("status-btn");
 
+  // Sayılar/metinler textContent ile basılır; sunucudan HTML gelmez.
+  function paintStatus(data) {
+    $("st-time").textContent = String(data.time);
+    $("st-uptime").textContent = String(data.uptime_s);
+    $("st-total").textContent = String(data.requests_total);
+    $("st-host").textContent = String(data.host || "—");
+    $("st-docker").textContent = data.in_docker === true ? "evet" : "hayır";
+    $("st-go").textContent = String(data.go || "—");
+    $("st-rt").textContent = String(data.goroutines) + " / " + String(data.cpu);
+    $("st-mem").textContent = String(data.mem_alloc_mb);
+  }
+
   async function refreshStatus() {
     const msg = $("status-msg");
     statusBtn.disabled = true;
@@ -95,16 +107,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await fetch("/api/status");
       const data = await res.json();
       if (res.ok && data.ok === true) {
-        // Sayılar/metinler textContent ile basılır; sunucudan HTML gelmez.
-        $("st-time").textContent = String(data.time);
-        $("st-uptime").textContent = String(data.uptime_s);
-        $("st-total").textContent = String(data.requests_total);
-        $("st-host").textContent = String(data.host || "—");
-        $("st-docker").textContent = data.in_docker === true ? "evet" : "hayır";
-        $("st-go").textContent = String(data.go || "—");
-        $("st-rt").textContent = String(data.goroutines) + " / " + String(data.cpu);
-        $("st-mem").textContent = String(data.mem_alloc_mb);
-        msg.textContent = "";
+        paintStatus(data);
+        if (!liveOn) msg.textContent = "";
       } else {
         msg.textContent = "Durum alınamadı.";
       }
@@ -115,7 +119,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
   statusBtn.addEventListener("click", refreshStatus);
-  refreshStatus(); // açılışta bir kez doldur
+
+  // Canlı soket: sunucu 5 sn'de bir + her kayıtta iter. Olmazsa (örn. Vercel
+  // serverless) 3 denemeden sonra bırakır; fetch yenileme zaten çalışır.
+  let liveOn = false;
+  let liveTries = 0;
+  function connectLive() {
+    if (liveTries >= 3) return;
+    liveTries++;
+    let ws;
+    try {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(proto + "://" + location.host + "/api/live");
+    } catch {
+      return;
+    }
+    ws.onopen = () => { liveOn = true; };
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data && data.ok === true) {
+          paintStatus(data);
+          $("status-msg").textContent = "";
+        }
+      } catch { /* bozuk kare yoksay */ }
+    };
+    ws.onclose = () => {
+      liveOn = false;
+      setTimeout(connectLive, 3000);
+    };
+    ws.onerror = () => { try { ws.close(); } catch { /* yoksay */ } };
+  }
+  refreshStatus(); // açılışta bir kez doldur (soketsiz de çalışır)
+  connectLive();
 
   const demoBtn = $("demo-btn");
   demoBtn.addEventListener("click", async () => {

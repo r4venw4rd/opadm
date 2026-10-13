@@ -25,6 +25,7 @@ api/requests|status|demo/            Vercel fonksiyonları (ince; aynı use case
 internal/domain/                     Request + Validate/Normalize + AllowedOrigin + Repository arayüzü
 internal/application/                Service: Submit / Snapshot / Ping / RunDemo (use case'ler)
 internal/infrastructure/http/        adaptör: JSON/başlık/HTTP kodu, iş kuralı yok
+internal/infrastructure/live/        WebSocket hub: 5 sn ticker + kayıt push'u
 internal/infrastructure/postgres/    Repository gerçekleşimi (parametrik SQL)
 internal/infrastructure/ratelimit/   IP başına limit (10/dk) + janitor + Peek
 internal/{domain,application}/..._test.go katman testleri (fake repo, DB'siz)
@@ -139,6 +140,11 @@ durur (7 gün); ölü oturumlar saatte bir süpürülür. Demo endpoint'i giriş
 {"ok":true,"time":"2026-10-13T13:52:11Z","uptime_s":1,"requests_total":1,
  "host":"a1b2c3d4e5f6","in_docker":true,"go":"go1.26.0","goroutines":5,"cpu":24,"mem_alloc_mb":3}
 ```
+
+`GET /api/live` → WebSocket. Bağlanınca ilk görüntü, sonra 5 sn'de bir +
+her kayıtta itilir (aynı JSON). Yabancı Origin 403. **Yalnızca uzun ömürlü
+süreçte (binary/Docker);** Vercel fonksiyonu 501 döner, sayfa fetch'e düşer
+(3 başarısız denemeden sonra soketi bırakır, "Yenile" çalışır).
 
 `GET /api/demo` → **giriş ister** (çerez yoksa 401). Özellikleri canlı dener;
 DB'ye yazmaz, kota yakmaz. Sayfadaki "Canlı demo" bölümü buradan beslenir:
