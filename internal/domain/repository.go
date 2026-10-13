@@ -7,4 +7,17 @@ type Repository interface {
 	Ping() error
 	Count() (int, error)
 	Close() error
+	// DBInfo, canlı kanıt için DB'nin kendi ağzından kimlik verir.
+	DBInfo() (DBIdentity, error)
+	// ProveWrite, yazma yolunu uçtan uca dener ve GERİ ALIR (kayıt kalmaz).
+	// Başarılıysa yazılan satırın id'sini döner.
+	ProveWrite() (int64, error)
+}
+
+// DBIdentity, "hangi DB, ne zaman" sorusunun DB'den gelen cevabıdır.
+type DBIdentity struct {
+	Version  string
+	Database string
+	Now      string
+	PingMs   int64
 }

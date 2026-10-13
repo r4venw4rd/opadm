@@ -114,8 +114,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (c.pass !== true) failed++;
         }
         msg.textContent = failed === 0
-          ? "Tüm özellikler çalışıyor (" + data.checks.length + "/" + data.checks.length + ")."
-          : failed + " özellik kalmış, detaya bakın.";
+          ? "Tüm özellikler çalışıyor (" + data.checks.length + "/" + data.checks.length + ", koşu " + data.run_id + ", " + data.took_ms + "ms)."
+          : failed + " özellik kalmış, detaya bakın (koşu " + data.run_id + ").";
       } else if (res.status === 401) {
         location.replace("/login/");
       } else {

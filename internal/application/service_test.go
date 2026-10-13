@@ -50,6 +50,20 @@ func (f *fakeRepo) Count() (int, error) {
 }
 func (f *fakeRepo) Close() error { return nil }
 
+func (f *fakeRepo) DBInfo() (domain.DBIdentity, error) {
+	if f.fail {
+		return domain.DBIdentity{}, errors.New("db down")
+	}
+	return domain.DBIdentity{Version: "fake-postgres 0 (test)", Database: "fake"}, nil
+}
+
+func (f *fakeRepo) ProveWrite() (int64, error) {
+	if f.fail {
+		return 0, errors.New("db down")
+	}
+	return int64(len(f.rows) + 1), nil // geri alınmış gibi: sayaç oynamaz
+}
+
 func (f *fakeRepo) CreateUser(email, hash string) (int64, error) {
 	if f.fail {
 		return 0, errors.New("db down")
@@ -138,10 +152,13 @@ func TestRunDemo(t *testing.T) {
 	svc, _ := newSvc()
 	lim := ratelimit.New(10, time.Minute)
 	checks := svc.RunDemo(lim)
-	if len(checks) != 6 {
-		t.Fatalf("%d check, 6 bekleniyordu", len(checks))
+	if len(checks.Checks) != 6 {
+		t.Fatalf("%d check, 6 bekleniyordu", len(checks.Checks))
 	}
-	for _, c := range checks {
+	if checks.RunID == "" {
+		t.Fatal("run_id boş olmamalı")
+	}
+	for _, c := range checks.Checks {
 		if !c.Pass {
 			t.Fatalf("%s kalmış: %s", c.Name, c.Detail)
 		}

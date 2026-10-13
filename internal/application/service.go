@@ -1,9 +1,12 @@
 package application
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"opadm/internal/domain"
@@ -82,53 +85,123 @@ type Check struct {
 	Detail string
 }
 
-// Limiter, demonun kota yakmadan bakması için dar arayüzdür.
+// Limiter, demonun bakması için dar arayüzdür.
 type Limiter interface {
 	Peek(ip string) (remaining int, limited bool)
+	Allow(ip string) bool
 	Size() int
 	Quota() (max int, window string)
 }
 
-// RunDemo, özellikleri canlı sistemde dener; DB'ye yazmaz, kota yakmaz.
+// DemoResult, bir demo koşusunun kimlikli zarfıdır.
+type DemoResult struct {
+	RunID  string
+	TookMs int64
+	Checks []Check
+}
+
+func newRunID() string {
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
+	return hex.EncodeToString(b[:])
+}
+
+// RunDemo, özellikleri canlı sistemde dener. Her check ölçülebilir iz bırakır:
+// süre, DB kimliği, sayaç deltaları. Yazma kanıtı geri alınır (kayıt kalmaz),
+// hız kanıtı çalışmaya özel probe anahtarında 1 kota yakar (5 dk'da silinir).
 // Sahte "her şey yeşil" yok: her check gerçekten koşar.
-func (s *Service) RunDemo(lim Limiter) []Check {
-	bad := domain.Request{Name: "A", Email: "bozuk", Service: "vpn", Message: "kisa"}
-	bad.Normalize()
-	good := domain.Request{Name: "Demo Kullanıcı", Email: "Demo@Ornek.com", Service: "backup", Message: "Bu, canlı demo doğrulaması için yeterli uzunlukta bir mesajdır."}
-	good.Normalize()
-
-	badErrs, goodErrs := bad.Validate(), good.Validate()
-	validationPass := len(badErrs) == 4 && len(goodErrs) == 0
-
-	normPass := good.Email == "demo@ornek.com"
-
-	csrfPass := !domain.AllowedOrigin("ornek.site", "https://kotusu.ornek", "") &&
-		domain.AllowedOrigin("ornek.site", "https://ornek.site", "")
-
-	remaining, limited := lim.Peek("demo-probe")
-	max, window := lim.Quota()
-	limitPass := !limited && remaining == max
-	limitDetail := "kota açık"
-	if limited {
-		limitDetail = "kota dolu (sistem saldırı altında olabilir)"
+func (s *Service) RunDemo(lim Limiter) DemoResult {
+	start := time.Now()
+	runID := newRunID()
+	timed := func(f func() (bool, string)) (bool, string) {
+		t0 := time.Now()
+		pass, detail := f()
+		return pass, detail + " (" + strconv.FormatInt(time.Since(t0).Microseconds(), 10) + "µs)"
 	}
 
-	dbPass, dbDetail := false, ""
-	if err := s.Repo.Ping(); err != nil {
-		dbDetail = "ping başarısız"
-	} else if n, err := s.Repo.Count(); err != nil {
-		dbDetail = "sayaç okunamadı"
-	} else {
-		dbPass = true
-		dbDetail = "ping ok, " + strconv.Itoa(n) + " kayıt"
-	}
+	validationPass, validationDetail := timed(func() (bool, string) {
+		bad := domain.Request{Name: "A", Email: "bozuk", Service: "vpn", Message: "kisa"}
+		bad.Normalize()
+		good := domain.Request{Name: "Demo Kullanıcı", Email: "Demo@Ornek.com", Service: "backup", Message: "Bu, canlı demo doğrulaması için yeterli uzunlukta bir mesajdır."}
+		good.Normalize()
+		be, ge := bad.Validate(), good.Validate()
+		if len(be) != 4 || len(ge) != 0 {
+			return false, "beklenmedik sonuç"
+		}
+		if good.Email != "demo@ornek.com" {
+			return false, "normalizasyon bozuk"
+		}
+		return true, "bozuk örnek 4 hata, sağlam örnek 0 hata, e-posta küçük harf"
+	})
 
-	return []Check{
-		{ID: "validation", Name: "Doğrulama", Pass: validationPass, Detail: "bozuk örnek 4 hata, sağlam örnek 0 hata"},
-		{ID: "normalize", Name: "Normalizasyon", Pass: normPass, Detail: "Demo@Ornek.com → demo@ornek.com"},
-		{ID: "csrf", Name: "CSRF koruması", Pass: csrfPass, Detail: "yabancı Origin reddedilir, öz Origin geçer"},
-		{ID: "ratelimit", Name: "Hız limiti", Pass: limitPass, Detail: limitDetail + " (kota yakılmadı)"},
-		{ID: "database", Name: "Veritabanı", Pass: dbPass, Detail: dbDetail},
-		{ID: "limiter-state", Name: "Limiter durumu", Pass: true, Detail: strconv.Itoa(lim.Size()) + " izlenen IP / " + window + " pencere"},
+	csrfPass, csrfDetail := timed(func() (bool, string) {
+		if domain.AllowedOrigin("ornek.site", "https://kotusu.ornek", "") {
+			return false, "yabancı Origin geçti"
+		}
+		if !domain.AllowedOrigin("ornek.site", "https://ornek.site", "") {
+			return false, "öz Origin kalmış"
+		}
+		return true, "yabancı reddedildi, öz geçti"
+	})
+
+	limitPass, limitDetail := timed(func() (bool, string) {
+		probe := "demo-probe-" + runID
+		before, limited := lim.Peek(probe)
+		max, window := lim.Quota()
+		if limited || before != max {
+			return false, "probe anahtarı kirli"
+		}
+		lim.Allow(probe) // 1 kota yak: uygulama yolu canlı mı?
+		after, _ := lim.Peek(probe)
+		if before-after != 1 {
+			return false, "delta tutmadı"
+		}
+		return true, "önce " + strconv.Itoa(before) + ", 1 yakıldı, sonra " + strconv.Itoa(after) + " / " + window + " pencere"
+	})
+
+	dbPass, dbDetail := timed(func() (bool, string) {
+		info, err := s.Repo.DBInfo()
+		if err != nil {
+			return false, "kimlik okunamadı"
+		}
+		ver := info.Version
+		if i := strings.Index(ver, " on "); i > 0 {
+			ver = ver[:i]
+		}
+		return true, ver + " · " + info.Database + " · " + info.Now + " · " + strconv.FormatInt(info.PingMs, 10) + "ms"
+	})
+
+	writePass, writeDetail := timed(func() (bool, string) {
+		n0, err := s.Repo.Count()
+		if err != nil {
+			return false, "sayaç okunamadı"
+		}
+		id, err := s.Repo.ProveWrite()
+		if err != nil || id <= 0 {
+			return false, "yazma yolu bozuk"
+		}
+		n1, err := s.Repo.Count()
+		if err != nil {
+			return false, "doğrulama okunamadı"
+		}
+		if n0 != n1 {
+			return false, "geri alma başarısız: kayıt kaldı"
+		}
+		return true, "satır #" + strconv.FormatInt(id, 10) + " yazıldı + geri alındı (önce/sonra: " + strconv.Itoa(n0) + "/" + strconv.Itoa(n1) + ")"
+	})
+
+	return DemoResult{
+		RunID:  runID,
+		TookMs: time.Since(start).Milliseconds(),
+		Checks: []Check{
+			{ID: "validation", Name: "Doğrulama", Pass: validationPass, Detail: validationDetail},
+			{ID: "csrf", Name: "CSRF koruması", Pass: csrfPass, Detail: csrfDetail},
+			{ID: "ratelimit", Name: "Hız limiti", Pass: limitPass, Detail: limitDetail},
+			{ID: "database", Name: "Veritabanı", Pass: dbPass, Detail: dbDetail},
+			{ID: "write-proof", Name: "Yazma kanıtı", Pass: writePass, Detail: writeDetail},
+			{ID: "limiter-state", Name: "Limiter durumu", Pass: true, Detail: strconv.Itoa(lim.Size()) + " izlenen IP"},
+		},
 	}
 }

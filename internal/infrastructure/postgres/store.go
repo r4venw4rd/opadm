@@ -133,3 +133,34 @@ func (s *Store) DeleteExpiredSessions() error {
 	_, err := s.db.Exec(`DELETE FROM sessions WHERE expires_at <= now()`)
 	return err
 }
+
+// DBInfo, SELECT ile DB kimliğini okur + gecikmeyi ölçer.
+// Demo "gerçekten bağlı" kanıtıdır; sahteye yazılamaz.
+func (s *Store) DBInfo() (domain.DBIdentity, error) {
+	start := time.Now()
+	var v, db, now string
+	err := s.db.QueryRow(`SELECT version(), current_database(), now()::text`).Scan(&v, &db, &now)
+	if err != nil {
+		return domain.DBIdentity{}, err
+	}
+	return domain.DBIdentity{Version: v, Database: db, Now: now, PingMs: time.Since(start).Milliseconds()}, nil
+}
+
+// ProveWrite, INSERT yolunu gerçek satırla dener, sonra ROLLBACK eder.
+// Kayıt kalmaz; dönen id "yazma gerçekten çalıştı" kanıtıdır.
+func (s *Store) ProveWrite() (int64, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback() // her durumda geri al: demo kirletmez
+	var id int64
+	err = tx.QueryRow(
+		`INSERT INTO requests (name, email, service, message, ip_hash)
+		 VALUES ('__demo__', 'demo@ornek.com', 'backup', 'yazma kaniti', 'demo') RETURNING id`,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}

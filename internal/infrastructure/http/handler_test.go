@@ -67,6 +67,23 @@ func (f *fakeStore) Count() (int, error) {
 
 func (f *fakeStore) Close() error { return nil }
 
+func (f *fakeStore) DBInfo() (domain.DBIdentity, error) {
+	if f.fail {
+		return domain.DBIdentity{}, errors.New("db down")
+	}
+	return domain.DBIdentity{Version: "fake-postgres 0 (test)", Database: "fake", Now: "2026-01-01T00:00:00Z"}, nil
+}
+
+func (f *fakeStore) ProveWrite() (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fail {
+		return 0, errors.New("db down")
+	}
+	// Geri alma benzetimi: satır eklenmez, sayaç oynamaz.
+	return int64(len(f.rows) + 1), nil
+}
+
 func (f *fakeStore) CreateUser(email, hash string) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -408,7 +425,9 @@ func TestDemo(t *testing.T) {
 		t.Fatalf("kod = %d, istendi 200", rec.Code)
 	}
 	var out struct {
-		OK     bool `json:"ok"`
+		OK     bool   `json:"ok"`
+		RunID  string `json:"run_id"`
+		TookMs int64  `json:"took_ms"`
 		Checks []struct {
 			ID     string `json:"id"`
 			Name   string `json:"name"`
@@ -419,17 +438,27 @@ func TestDemo(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || !out.OK {
 		t.Fatalf("demo yanıtı bozuk: %s", rec.Body.String())
 	}
+	if out.RunID == "" {
+		t.Fatal("run_id boş olmamalı (kanıtsız koşu)")
+	}
 	if len(out.Checks) != 6 {
 		t.Fatalf("%d check, 6 bekleniyordu", len(out.Checks))
 	}
+	ids := map[string]bool{}
 	for _, c := range out.Checks {
 		if !c.Pass || c.Detail == "" {
 			t.Fatalf("check kalmış/boş: %+v", c)
 		}
+		ids[c.ID] = true
 	}
-	// Demo DB'ye yazmamalı, kota yakmamalı.
+	for _, want := range []string{"validation", "csrf", "ratelimit", "database", "write-proof", "limiter-state"} {
+		if !ids[want] {
+			t.Fatalf("%s check'i yok", want)
+		}
+	}
+	// Demo kalıcı kayıt yazmamalı (yazma kanıtı geri alınır).
 	if n, _ := app.Service.Repo.Count(); n != 0 {
-		t.Fatalf("demo kayıt yazmış, n=%d", n)
+		t.Fatalf("demo kayıt bırakmış, n=%d", n)
 	}
 }
 

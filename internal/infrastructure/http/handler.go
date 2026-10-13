@@ -267,7 +267,7 @@ func (a *App) Live(w http.ResponseWriter, r *http.Request) {
 }
 
 // Demo, GET /api/demo. Giriş ister: işveren üye olup girer, özellikleri
-// canlı dener. DB'ye yazmaz, kota yakmaz. Her check gerçekten koşar.
+// canlı dener. Her check ölçülebilir kanıt taşır (süre, DB kimliği, deltalar).
 func (a *App) Demo(w http.ResponseWriter, r *http.Request) {
 	if _, ok, _ := a.currentUser(r); !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]any{
@@ -275,14 +275,16 @@ func (a *App) Demo(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	checks := a.Service.RunDemo(a.Limiter)
-	out := make([]map[string]any, 0, len(checks))
-	for _, c := range checks {
+	res := a.Service.RunDemo(a.Limiter)
+	out := make([]map[string]any, 0, len(res.Checks))
+	for _, c := range res.Checks {
 		out = append(out, map[string]any{
 			"id": c.ID, "name": c.Name, "pass": c.Pass, "detail": c.Detail,
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "checks": out})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "run_id": res.RunID, "took_ms": res.TookMs, "checks": out,
+	})
 }
 
 // Health, GET /healthz. DB'ye ping atar; DB kapalıysa 500 verir.
