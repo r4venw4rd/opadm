@@ -236,8 +236,13 @@ func TestStatus(t *testing.T) {
 	if code != 200 || out["ok"] != true || out["requests_total"] != float64(0) {
 		t.Fatalf("boş status bekleniyordu: %d %v", code, out)
 	}
-	if _, ok := out["uptime_s"]; !ok {
-		t.Fatalf("uptime_s yok: %v", out)
+	for _, k := range []string{"uptime_s", "time", "host", "in_docker", "go", "goroutines", "cpu", "mem_alloc_mb"} {
+		if _, ok := out[k]; !ok {
+			t.Fatalf("%s alanı yok: %v", k, out)
+		}
+	}
+	if h, _ := out["host"].(string); h == "" {
+		t.Fatalf("host boş olmamalı: %v", out)
 	}
 	if rec := postJSON(t, app, validBody(), "application/json"); rec.Code != 201 {
 		t.Fatalf("kayıt 201 bekleniyordu: %d", rec.Code)

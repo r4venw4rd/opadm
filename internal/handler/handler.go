@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/mail"
 	"net/url"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -172,19 +174,30 @@ func (a *App) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"ok": true})
 }
 
-// Status, GET /api/status. Kişisel veri içermez; yalnızca canlılık ve
-// sayaç verir. Demoda "formu gönder → sayıyı artar gör" döngüsü için.
+// Status, GET /api/status. Kişisel veri içermez; canlılık, sayaç ve
+// çalışılan ortamın canlı bilgilerini verir (Docker'da container verisi).
+// Demoda "formu gönder → sayıyı artar gör" döngüsü için.
 func (a *App) Status(w http.ResponseWriter, r *http.Request) {
 	n, err := a.Store.Count()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false})
 		return
 	}
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	host, _ := os.Hostname() // Docker'da kısa container ID'dir
+	_, dockerErr := os.Stat("/.dockerenv")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":             true,
 		"time":           time.Now().UTC().Format(time.RFC3339),
 		"uptime_s":       int64(time.Since(a.Started).Seconds()),
 		"requests_total": n,
+		"host":           host,
+		"in_docker":      dockerErr == nil,
+		"go":             runtime.Version(),
+		"goroutines":     runtime.NumGoroutine(),
+		"cpu":            runtime.NumCPU(),
+		"mem_alloc_mb":   int64(mem.Alloc / 1024 / 1024),
 	})
 }
 

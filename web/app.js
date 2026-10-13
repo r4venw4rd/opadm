@@ -50,10 +50,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/status");
       const data = await res.json();
       if (res.ok && data.ok === true) {
-        // Sayılar textContent ile basılır; sunucudan HTML gelmez.
+        // Sayılar/metinler textContent ile basılır; sunucudan HTML gelmez.
         $("st-time").textContent = String(data.time);
         $("st-uptime").textContent = String(data.uptime_s);
         $("st-total").textContent = String(data.requests_total);
+        $("st-host").textContent = String(data.host || "—");
+        $("st-docker").textContent = data.in_docker === true ? "evet" : "hayır";
+        $("st-go").textContent = String(data.go || "—");
+        $("st-rt").textContent = String(data.goroutines) + " / " + String(data.cpu);
+        $("st-mem").textContent = String(data.mem_alloc_mb);
         msg.textContent = "";
       } else {
         msg.textContent = "Durum alınamadı.";

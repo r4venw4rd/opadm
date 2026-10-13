@@ -85,6 +85,11 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
   fikri** ("docker üzerinden reel demo, sistem bilgileri çeken demomsu şey").
   Kişisel veri dönmez (uptime, saat, toplam kayıt); form başarısı sayacı
   artırır. curl ile doğrulandı: `requests_total` 0→1, bölüm HTML'de mevcut.
+- Kullanıcı "status canlı docker sistemden veri çeksin" dedi: `host` (Docker'da
+  container ID), `in_docker` (`/.dockerenv`), `go`, `goroutines`, `cpu`,
+  `mem_alloc_mb` eklendi (hepsi stdlib `os`/`runtime`). Yerel curl çıktısı:
+  `in_docker:false` (container dışı), `host` makine adı. Container-içi
+  (`in_docker:true`) kanıtı kullanıcıya kaldı.
 - Başka hata bulunamadı. Test senaryoları ilk çalışmada geçti; "düzelttim" hikayesi
   uydurulmadı. DB-hatası (500, başarı yok) ve rate limit (429) davranışları test +
   kod incelemesiyle doğrulandı.

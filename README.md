@@ -111,8 +111,11 @@ Docker'sız seçenek: `opadm.service` dosyasındaki komutlarla systemd kurulumu.
 `GET /api/status` → kişisel veri içermez; sayfadaki "Canlı durum" bölümü buradan beslenir:
 
 ```jsonc
-{"ok":true,"time":"2026-10-13T13:52:11Z","uptime_s":1,"requests_total":1}
+{"ok":true,"time":"2026-10-13T13:52:11Z","uptime_s":1,"requests_total":1,
+ "host":"a1b2c3d4e5f6","in_docker":true,"go":"go1.26.0","goroutines":5,"cpu":24,"mem_alloc_mb":3}
 ```
+// `host` Docker'da kısa container ID'dir; `in_docker` `/.dockerenv` varlığına
+// bakılarak üretilir. Yeni alanlar eklenirse aşağıdaki test listesine işlenir.
 
 Kurallar: name 2-80, email regex + ≤254 (küçük harfe normalize), service
 allowlist, message 10-1000. Limit: 16 KB body; bilinmeyen alan reddedilir.
