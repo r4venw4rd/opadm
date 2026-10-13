@@ -16,10 +16,10 @@
 <header class="wrap site-header">
   <p class="brand"><span class="brand-mark" aria-hidden="true">$</span> opadm</p>
   <nav aria-label="Sayfa bölümleri">
+    <a href="#hesap">Hesap</a>
     <a href="#hizmetler">Hizmetler</a>
     <a href="#nasil">Nasıl çalışır</a>
     <a href="#durum">Canlı durum</a>
-    <a href="#hesap">Hesap</a>
     <a href="#demo">Demo</a>
     <a class="nav-cta" href="#talep">Talep oluştur</a>
     <button class="theme-btn" type="button" id="theme-btn" aria-label="Açık temaya geç">☾</button>
@@ -52,6 +52,48 @@ restore test <span class="t-green">PASSED</span> <span class="t-dim">2.1s</span>
 uptime  disk  svc  <span class="t-green">OK OK OK</span>
 <span class="t-dim"># bu panel aşağıdaki canlı durumdan beslenir</span><span class="caret" aria-hidden="true">▊</span></code></pre>
     </div>
+  </section>
+
+  <section id="hesap" aria-labelledby="account-heading">
+    <h2 id="account-heading">Hesap</h2>
+    <p class="sec-sub">Demo ve test özelliklerini denemek için üye olun, giriş yapın.</p>
+    <div class="status-panel" id="account-logged-out">
+      <div class="auth-grid">
+        <form id="signup-form" novalidate>
+          <h3>Üye ol</h3>
+          <div class="field">
+            <label for="su-email">E-posta</label>
+            <input id="su-email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="su-err">
+          </div>
+          <div class="field">
+            <label for="su-pass">Parola (8-128 karakter)</label>
+            <input id="su-pass" type="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="su-err">
+          </div>
+          <p class="err" id="su-err" hidden></p>
+          <button class="btn btn-primary" type="submit" id="signup-btn">Üye ol</button>
+        </form>
+        <form id="login-form" novalidate>
+          <h3>Giriş yap</h3>
+          <div class="field">
+            <label for="li-email">E-posta</label>
+            <input id="li-email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="li-err">
+          </div>
+          <div class="field">
+            <label for="li-pass">Parola</label>
+            <input id="li-pass" type="password" autocomplete="current-password" required aria-describedby="li-err">
+          </div>
+          <p class="err" id="li-err" hidden></p>
+          <button class="btn btn-primary" type="submit" id="login-btn">Giriş yap</button>
+        </form>
+      </div>
+    </div>
+    <div class="status-panel" id="account-logged-in" hidden>
+      <p>Giriş yapıldı: <strong id="account-email"></strong></p>
+      <div class="status-actions">
+        <button class="btn" type="button" id="logout-btn">Çıkış yap</button>
+      </div>
+    </div>
+    <p id="account-msg" role="status" aria-live="polite"></p>
   </section>
 
   <section class="strip" aria-label="Güven göstergeleri">
@@ -144,48 +186,6 @@ uptime  disk  svc  <span class="t-green">OK OK OK</span>
         <p id="status-msg" role="status" aria-live="polite"></p>
       </div>
     </div>
-  </section>
-
-  <section id="hesap" aria-labelledby="account-heading">
-    <h2 id="account-heading">Hesap</h2>
-    <p class="sec-sub">Demo ve test özelliklerini denemek için üye olun, giriş yapın.</p>
-    <div class="status-panel" id="account-logged-out">
-      <div class="auth-grid">
-        <form id="signup-form" novalidate>
-          <h3>Üye ol</h3>
-          <div class="field">
-            <label for="su-email">E-posta</label>
-            <input id="su-email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="su-err">
-          </div>
-          <div class="field">
-            <label for="su-pass">Parola (8-128 karakter)</label>
-            <input id="su-pass" type="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="su-err">
-          </div>
-          <p class="err" id="su-err" hidden></p>
-          <button class="btn btn-primary" type="submit" id="signup-btn">Üye ol</button>
-        </form>
-        <form id="login-form" novalidate>
-          <h3>Giriş yap</h3>
-          <div class="field">
-            <label for="li-email">E-posta</label>
-            <input id="li-email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="li-err">
-          </div>
-          <div class="field">
-            <label for="li-pass">Parola</label>
-            <input id="li-pass" type="password" autocomplete="current-password" required aria-describedby="li-err">
-          </div>
-          <p class="err" id="li-err" hidden></p>
-          <button class="btn btn-primary" type="submit" id="login-btn">Giriş yap</button>
-        </form>
-      </div>
-    </div>
-    <div class="status-panel" id="account-logged-in" hidden>
-      <p>Giriş yapıldı: <strong id="account-email"></strong></p>
-      <div class="status-actions">
-        <button class="btn" type="button" id="logout-btn">Çıkış yap</button>
-      </div>
-    </div>
-    <p id="account-msg" role="status" aria-live="polite"></p>
   </section>
 
   <section id="demo" aria-labelledby="demo-heading">
