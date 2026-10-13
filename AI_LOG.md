@@ -13,7 +13,8 @@
 - **Kullanıcı kararları (konuşmada gerçekten verilen):** repo/proje adı `opadm`;
   ürün sayfadaki adın da NöbetçiOps değil `opadm` olması; Go + SQLite + vanilla JS
   stack'i, 3 hizmet (backup/monitoring/hardening), ev sunucusu + Cloudflare Tunnel
-  deploy yolu (hepsi görev brief'inden).
+  deploy yolu (hepsi görev brief'inden); ayrıca sonraki oturumda açıkça istenen
+  **Docker ile deploy kararı** ("dockerize etsene").
 - **AI yazdı:** `main.go`, `internal/{store,handler,ratelimit}`, testler,
   `web/{index.html,app.js,style.css}`, Dockerfile/compose/systemd, README, bu dosya.
 - **Kullanıcı seçimi/kararı bu oturumda ayrıca istenmedi** (brief "sormadan makul
@@ -66,6 +67,12 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
 ## Bulunan hatalar
 
 - Yukarıdaki kullanılmayan import (`go vet` yakaladı, düzeltilip tekrar doğrulandı).
+- Docker build hatası (kullanıcı bildirdi): `go.mod requires go >= 1.26.0` ama
+  Dockerfile'da `golang:1.23-alpine` vardı → `golang:1.26-alpine` yapıldı; ayrıca
+  `.dockerignore` eklendi ve `/data` dizini nonroot'a chown'landı (named volume
+  root-owned gelir, yoksa nonroot DB'yi açamaz). Bu oturumda Docker daemon'a
+  erişim yoktu (soket `root:docker`, şifresiz sudo yok); imaj build + compose
+  doğrulaması kullanıcıya kaldı, sonucu buraya işlenmedi.
 - Başka hata bulunamadı. Test senaryoları ilk çalışmada geçti; "düzelttim" hikayesi
   uydurulmadı. DB-hatası (500, başarı yok) ve rate limit (429) davranışları test +
   kod incelemesiyle doğrulandı.
