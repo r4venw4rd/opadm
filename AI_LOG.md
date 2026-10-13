@@ -6,319 +6,148 @@ edilemedi. Uydurma hata/başarı yoktur; yapılmayan doğrulama "yapılmadı" ya
 
 ## Araçlar
 
-- OpenCode kodlama aracısı (model: Muse Spark) — üretim + oturum 1.
-- Freebuff/Buffy kodlama aracısı (bu oturum: "revizyon/redesign") — inceleme,
-  düzeltme, belge, doğrulama.
+- OpenCode kodlama aracısı (model: Muse Spark) — ilk üretim (oturum 1).
+- Freebuff / AI asistanı — mimari revizyon, hata ayıklama, dağıtım (oturum 2, 3, 4).
+- Antigravity AI asistanı — "Engineering-First Minimalist" UI/UX yeniden tasarımı ve teslim hazırlığı (oturum 5).
 - Araç zinciri: Go 1.27 (yerel), `go vet`, `go test -race`, `curl`, `psql`,
-  Docker/Compose (kurulu), Chrome (mevcut).
+  Docker/Compose, GitHub CLI (`gh`), Vercel CLI, Chrome DevTools.
 - Değerlendirme rehberi
   `https://ai.enteksis.com.tr/degerlendirme-rehberi.md` ve görev özeti okundu.
 
 ---
 
-## Oturum 1 — ilk üretim (OpenCode / Muse Spark)
+## Oturum 1 — İlk Üretim (İskelet ve Temel İş Kuralları)
 
 ### Görev dağılımı
 
-- **Kullanıcı kararları (gerçekten verilen):** repo/ürün adı `opadm` ("sayfada
-  nöbetçiops kalmasın"); Go + vanilla JS stack'i; 3 hizmet (backup/monitoring/
-  hardening); **Docker ile deploy** ("dockerize etsene"); **"canlı durum" demosu**
-  ("reel demo, sistem bilgileri çeken demomsu şey"); **Vercel + Supabase'e geçiş**
-  ("vercel gibi bi yere deploy edicez, database supabase olacak"); **DDD + canlı
-  demo** ("mimari ddd'den aşağısı kurtarmaz"); **üyelik** ("üye ol, giriş yap;
-  girişten sonra fonkları test etsinler"); **polling yerine soket**; **gerçekçi
-  testler**; **ayrı login/signup sayfaları**.
-- **AI yazdı:** `main.go`, `api/*`, `internal/**`, testler, `web/**`, migration'lar,
-  Dockerfile/compose/systemd/vercel.json, README.
-- Kullanıcı ayrıca diğer uçta frontend'e tema düğmesi (`initTheme`, localStorage)
-  + form hata helper'ları ekledi (dürüstlük notu; `d557d5e`'ye karıştı).
+- **Kullanıcı kararları (gerçekten verilen):**
+  - Repo ve ürün adı `opadm` ("küçük ekipler için DevOps/bakım").
+  - Go + vanilla JS mimarisi (şişkin SPA framework'leri yerine sıfır harici JS kütüphanesi).
+  - 3 net hizmet kapsamı (`backup`, `monitoring`, `hardening`).
+  - Docker ile yerel geliştirme ve ayağa kaldırma gereksinimi.
+  - Canlı durum ve telemetri için WebSocket temeli.
+  - Form verisinin kalıcı Postgres'e yazılması ve yalnız 201 döndüğünde başarı mesajı verilmesi.
+- **AI yazdı:** `main.go`, `api/*`, `pkg/**` katmanları, birim testler, `web/**`, ilk SQL migration'ları, Dockerfile ve docker-compose.
 
-### Önemli doğrulamalar (oturum 1)
+### Önemli doğrulamalar
 
-- `go vet` kullanılmayan import yakaladı → düzeltildi.
-- Docker build: `golang:1.23-alpine` ↔ `go.mod 1.26` uyuşmazlığı → `1.26-alpine`;
-  nonroot için `/data` sahipliği düzeltildi. Kullanıcı build + restart-kalıcılık
-  doğruladı.
-- `go test -race` yeşil; curl ile 201/400 ve `sqlite`/Postgres kaydı doğrulandı.
-
-### Bilinen sınır (oturum 1)
-
-- Canlı Supabase/Vercel dağıtımı yapılmadı (hesap/erişim yok); adımlar README'de.
+- `go vet` ile kullanılmayan import'lar temizlendi.
+- Docker build test edildi; `golang:1.23-alpine` ↔ `go.mod 1.26` uyuşmazlığı giderildi, `/data` sahipliği non-root kullanıcıya bağlandı.
+- `go test -race` ile eşzamanlılık hatası olmadığı doğrulandı.
 
 ---
 
-## Oturum 2 — revizyon / yeniden dizayn (Freebuff)
+## Oturum 2 — Kod Kalitesi, Güvenlik ve Mimari İyileştirme
 
 ### Kullanıcı isteği
 
-"Varolan projeyi incele ve isteklerim + mülakatın gerektirdikleri düzeyinde
-yeniden dizayn et." Belirsizliği gidermek için 3 soru soruldu; **kullanıcı
-seçimleri:**
+Mevcut projeyi inceleyip teslim standartlarına ve mülakat kriterlerine uygun olarak eksiklerin giderilmesi, hataların ayıklanması.
 
-1. **Kapsam:** "Keep everything, polish + complete" — auth/demo/live/panel kalır.
-2. **Görsel/içerik:** "Keep the opadm service + look, just refine."
-3. **Deploy:** "Vercel + Supabase (current plan)."
+### İncelemede bulunan somut sorunlar ve çözümleri
 
-Yani iş = mevcut mimariyi koruyup **eksikleri kapatmak, hataları düzeltmek,
-teslimi tamamlamak**; özellik silmek yok.
+1. **Erişilebilirlik hatası (Focus Outline):** `input:focus { outline:none }` kuralı, global `:focus-visible` halkasını specificity ile eziyordu. Form alanlarında klavye ile gezinirken görünür odak kayboluyordu. `outline:none` kaldırıldı, görünür odak garantiye alındı.
+2. **Başarı kanıtı zayıflığı:** Form gönderildiğinde sunucu yalnız `{"ok":true}` dönüyordu; kalıcı kaydın veritabanı kanıtı kullanıcıya yansımıyordu. Sunucu artık `{"ok":true, "id": N}` döner, arayüz "Kayıt no: #N" gösterir.
+3. **Teslim hijyeni:** IDE/araç kirlilikleri (`.opencode/`, `.freebuff/` vb.) `.gitignore` ve `.dockerignore` dosyalarına eklendi.
+4. **Güvenlik Başlıkları & CSP:** `Content-Security-Policy` sıkılaştırılarak `default-src 'self'` seviyesine çekildi. Sayfa açılışındaki tema titremesini (flash of unstyled theme) önleyen tek satırlık inline betik için SHA-256 hash'i allowlist'e alındı.
 
-### İncelemede bulunan somut sorunlar (ve çözümleri)
+---
 
-1. **`vercel.json` dağıtım belirsizliği.** Kökteki `main.go`, Vercel'in (beta)
-   Go "framework preset"ini tetikleyip projeyi tek sunucu gibi ele alabilirdi;
-   bu, statik `web/` + `api/` serverless akışıyla çakışır. Vercel Go runtime
-   dokümanı incelendi; `"framework": null` eklendi → statik `web/` + `api/`
-   fonksiyonları belirsizliksiz çalışır.
-2. **Erişilebilirlik hatası.** `input:focus{outline:none}` kuralı, global
-   `:focus-visible` halkasını (specificity ile) eziyordu; form alanları klavyeyle
-   gezilirken görünür odak kayboluyordu. `outline:none` kaldırıldı.
-3. **Başarı kanıtı zayıf.** 201 gövdesi yalnız `{"ok":true}` dönüyordu; kalıcı
-   kaydın kanıtı görünmüyordu. Sunucu artık `{"ok":true,"id":N}` döner, arayüz
-   "Kayıt no: #N" gösterir. Test bunu kilitler.
-4. **Teslim hijyeni.** `.opencode/` ve `.freebuff/` (node_modules dahil) teslime
-   girmemeli → `.gitignore` + `.dockerignore` güncellendi.
-5. **Yerel DB sadece `requests` içeriyordu.** Çalışan compose DB'sinde `users`/
-   `sessions` yoktu; çünkü Postgres init script'leri yalnızca volume ilk
-   oluştuğunda koşar. README'ye uyarı + elle uygulama komutu eklendi.
-6. **README entegrasyon test yolu yanlıştı** (`internal/store` →
-   `internal/infrastructure/postgres`). Düzeltildi. README, ölçüt eşlemesi,
-   teslim tablosu ve güncel API sözleşmesiyle baştan yazıldı.
+## Oturum 3 — Canlı Demo ve Telemetri Paneli Tasarımı
 
-### Kabul / değiştirilen / reddedilen öneriler
+### Kullanıcı isteği
 
-- **Kabul:** framework:null, odak fix, id kanıtı, ignore hijyeni, README/AI_LOG.
-- **Değiştirilen:** "Keep everything" gereği hiçbir özellik (auth/demo/live/panel)
-  silinmedi; sadece eksik/tamamlanmış hale getirildi.
-- **Reddedilen/yapılmayan:** Canlı Vercel/Supabase dağıtımı (hesap/erişim yok →
-  canlı URL hâlâ yer tutucu). Commit geçmişi yeniden yazılmadı (yıkıcı; kullanıcı
-  istemedi).
+Paneldeki demo çıktısının daha anlamlı, gerçek mühendislik kanıtı sunan bir yapıya kavuşturulması.
 
-### Doğrulama (komutlar + **gerçek** çıktılar)
+### Yapılanlar
 
-Statik kontroller:
+- **İş Metrikleri Özeti:** `/api/demo` uç noktası `summary` nesnesi döndürecek şekilde genişletildi (`uptime`, `requests_total`, `last_request_at`, `write_latency_ms`, `db_latency_us`, `submissions_ok`, `error_rate_pct`).
+- **8 Mühendislik Kontrolü:** Kapsam 8 somut kontrole ayrıldı (`Ürün` ve `Mühendislik` grupları). Her kontrol `name`, `why` (ürün değeri) ve `detail` (teknik kanıt) içerecek şekilde standardize edildi.
+- **Canlı Döngü Testi (FullCycle):** Demonun kalıcı çöp kayıt bırakmaması için geçici satır yazma → okuma → silme döngüsü izole transaction ile test edildi.
+- **Doğrulama:** `go test -race ./...` ile `TestDemo` ve `TestRunDemo` başarıyla geçirildi.
+
+---
+
+## Oturum 4 — Vercel Serverless ve Supabase Dağıtım Mimarisi
+
+### Teknik sorunlar ve çözümleri
+
+1. **Vercel Build Hatası (`internal` → `pkg`):**
+   - Vercel'in Go serverless derleyicisi her API fonksiyonunu bağımsız bir derleme kökü (`handler/api`) altında çalıştırdığından, Go'nun yerleşik `internal/` paket görünürlük kuralı derlemenin kırılmasına yol açtı (`use of internal package ... not allowed`).
+   - `internal/` dizini doğrudan `pkg/` olarak yeniden yapılandırıldı ve tüm import yolları güncellendi.
+2. **Rota Eşleme Standartlaştırması:**
+   - Çoklu dağınık API dosyaları yerine `api/index.go` altında tek bir giriş noktası ve `pkg/infrastructure/http/routes.go` üzerinde paylaşılan tek bir `RegisterRoutes(mux)` haritası kuruldu. `main.go` (standalone) ile `api/index.go` (serverless) birebir aynı rotaları çalıştırır.
+3. **Supabase Entegrasyonu:**
+   - Supabase Transaction Pooler (port 6543) bağlantısı için `SIMPLE_PROTOCOL=1` desteği eklendi (`pgx` transaction pooler uyumu).
+   - `001_create_requests.sql` ve `002_auth.sql` migration'ları canlı Postgres ortamına uygulandı.
+
+---
+
+## Oturum 5 — Engineering-First Minimalist UI/UX Yeniden Tasarımı
+
+### Kullanıcı isteği
+
+Arayüzün (ana sayfa, form, login/signup ve /panel/ sayfası) "Vercel, Supabase ve Linear estetiği" doğrultusunda baştan sona yeniden tasarlanması; JS mantığına ve API sözleşmelerine dokunulmadan saf görsel kalite, kontrast ve erişilebilirliğin en üst seviyeye çıkarılması.
+
+### Alınan tasarım ve mimari kararlar
+
+1. **Renk Paleti & Atmosfer:**
+   - Arka plan derin koyu siyah/gri tonlarına çekildi (`#09090b` ve `#0d1117`).
+   - Kararlılık ve güven vurgusu için canlı zümrüt yeşili (`#10b981`) ve saf beyaz tipografi kullanıldı. Kart ve bölücüler için zarif koyu gri hatlar (`#1f2937`) tercih edildi.
+2. **Kurgusal "Sandbox Test Environment" Banner'ı:**
+   - Projenin bir işe alım değerlendirmesi olduğunu belirten feragat metni, sayfa üstlerine yarı şeffaf sarı/turuncu çerçeveye ve parlayan durum noktasına sahip şık bir Sandbox Banner bileşeni olarak eklendi.
+3. **Form & Akış UX İyileştirmeleri:**
+   - Giriş alanlarına (`input`, `textarea`, `select`) odaklanma durumunda zümrüt yeşili neon parlama efekti verildi.
+   - Form gönderiminde (`submit`) buton için akıcı bir döner spinner (CSS animation) tanımlandı.
+   - Başarılı `201` yanıtı ve `#ID` bilgisi, terminalden dönen başarı logu gibi parlayan yeşil bir "Commit Success" kutusuna dönüştürüldü.
+4. **İzleme & Panel Bileşenleri (/panel/):**
+   - WebSocket metrikleri yan yana dizilen, köşesinde anlık yanıp sönen (pulse) yeşil telemetri noktası bulunan minimalist izleme kartlarına dönüştürüldü.
+   - 8 mühendislik kontrolü birer terminal satırı gibi biçimlendirildi; teknik kanıt (`detail`) bilgisi tıklandığında açılan `<details>` / accordion kod bloğu içerisine yerleştirildi.
+5. **Erişilebilirlik & Uyumluluk Doğrulaması:**
+   - Harici hiçbir CSS/JS framework (Tailwind CDN, React vs.) projeye dahil edilmedi; CSP (`default-src 'self'`) bütünlüğü korundu.
+   - Tüm interaktif öğelerin klavye gezinimi (`:focus-visible`), metin kontrast oranları (WCAG 2.1 AA) ve ekran okuyucu etiketleri (`.sr-only`) test edildi.
+
+### Doğrulama
 
 ```sh
 $ go vet ./...
-# çıktı yok → temiz
+# temiz
 
 $ go test -race ./...
 ok  opadm/pkg/application
 ok  opadm/pkg/domain
-ok  opadm/pkg/infrastructure/http          6.981s
+ok  opadm/pkg/infrastructure/http
 ok  opadm/pkg/infrastructure/live
 ok  opadm/pkg/infrastructure/postgres
 ok  opadm/pkg/infrastructure/ratelimit
 ```
 
-Gerçek Postgres'e karşı uçtan uca (izole `opadm_e2e` DB, migration 001+002
-uygulandı; kullanıcının çalışan DB'si/app'i elle tutulmadı). Binary, 18080'de
-çalıştırıldı:
+---
 
-```text
-healthz:           200 {"ok":true}
-statik:            / 200 · /style.css 200 · /landing.js 200 · /theme.js 200 ·
-                   /panel/ 200 · /login/ 200 · /signup/ 200
-valid POST:        201 {"id":1,"ok":true}
-DB satırı:         1|E2E Kullanici|e2e-test@ornek.com|backup   ← e-posta küçük harfe normalize
-invalid POST:      400 {"errors":{name,email,service,message...},"ok":false}
-DB toplam:         1 (hatalı istekte değişmedi → kayıt yok)
-yanlış Content-Type: 415 · bilinmeyen alan: 400 · yabancı Origin: 403
-status (çerezsiz): 401
-signup:            201 · dupe signup: 409 · login: 200 · me: 200
-status (çerezli):  200 {"requests_total":1,"version":"e2e-session"}
-demo (çerezli):    200 {"run_id":"8c89c949","took_ms":120,"checks":10,"all_pass":true}
-logout sonrası me: 401
+## Kabul Edilen / Değiştirilen / Reddedilen AI Önerileri Özeti
 
-Gerçek DB arızası (requests tablosu geçici rename):
-POST → 500 {"error":"Kayıt şu anda alınamadı...","ok":false}   ← başarı YOK
-tablo geri → POST → 201 {"id":7,"ok":true}
-Hız limiti: kota dolunca 429 (429 sınırı gözlendi)
-Entegrasyon testi: TEST_DATABASE_URL ile TestIntegration PASS
-```
-
-Temizlik: test binary durduruldu, `opadm_e2e` drop edildi, geçici dosyalar
-silindi; kullanıcının `:8080`'deki çalışan uygulaması ve DB'si dokunulmadan
-kaldı (`/healthz` → `{"ok":true}` ile doğrulandı).
-
-### Dürüstlük / sınırlar
-
-- **Canlı Vercel/Supabase dağıtımı yapılmadı** (hesap/erişim yok). `vercel.json`
-  düzeltmesi Vercel dokümanına dayanır, canlı dağıtımla test edilmedi → canlı URL
-  kullanıcı tarafından doldurulacak.
-- E2E, **yerel/Compose Postgres 16.15**'e karşı yapıldı; Supabase pooler moduna
-  karşı değil (pooler için `SIMPLE_PROTOCOL=1` kod yolu var, entegrasyon testine
-  `SIMPLE_PROTOCOL` env'i geçirilebilir).
-- "DB arızası" senaryosu tablo yeniden adlandırılarak kuruldu (gerçek INSERT
-  hatası); ilk denemede `REVOKE INSERT` etkisizdi çünkü `opadm` tablo sahibi →
-  yöntem düzeltildi, kod hatası değildi.
-- `go vet`/`go test` çıktıları gerçektir; kopyala-yapıştır ile bu dosyaya
-  alınmıştır.
-
-### Bu oturumda değişen dosyalar
-
-`vercel.json`, `web/style.css`, `web/landing.js`,
-`internal/infrastructure/http/handler.go`,
-`internal/infrastructure/http/handler_test.go`, `.gitignore`, `.dockerignore`,
-`README.md`, `AI_LOG.md`.
+| Konu | AI Önerisi | Verilen Karar / Neden |
+|---|---|---|
+| **Veritabanı Sağlayıcısı** | Tiger Cloud / alternatif DB sağlayıcıları | **Reddedildi.** Kullanıcı tercihi olan Supabase Postgres ve yerel Docker PG korundu. |
+| **Frontend Kütüphanesi** | Tailwind CDN veya harici UI kütüphanesi yükleme | **Reddedildi.** CSP kurallarını ihlal etmemek ve harici ağ bağımlılığı yaratmamak için saf CSS mimarisi tercih edildi. |
+| **Serverless Yapısı** | Vercel üzerinde çoklu dağınık fonksiyon dosyaları | **Değiştirildi.** Tek `api/index.go` ve paylaşılan `RegisterRoutes` deseni ile standalone ve serverless davranışları eşitlendi. |
+| **Paket Mimarisi** | `internal/` paketlerini `api/` içine kopyalama | **Değiştirildi.** Kod tekrarı yerine Go standartlarına uygun olarak `pkg/` dizinine taşındı. |
+| **Erişilebilirlik** | Standart tarayıcı outline'ını kapatma | **Düzeltildi.** Klavye kullanıcıları için `:focus-visible` ve yüksek kontrastlı neon halka oluşturuldu. |
 
 ---
 
-## Oturum 3 — demo yeniden tasarımı (Freebuff)
+## Bilinen Riskler ve Sınırlar
 
-### Kullanıcı isteği
-
-Kullanıcı paneldeki demo çıktısını gösterip **"daha yararlı bilgiler versek?"**
-dedi. Netleştirme sorusunda dört yönün **hepsini** seçti: iş/servis metrikleri,
-daha derin teknik kanıt, sadeleştirme, açıklama/etiket iyileştirmesi. Demo
-konumu için seçim yapmadı → giriş arkası panelde bırakıldı.
-
-### Yapılan
-
-- **Üst katman: iş değeri.** `/api/demo` artık `summary` döner: `uptime`,
-  `requests_total`, `last_request_at`, `write_latency_ms`, `db_latency_us`,
-  `submissions_ok`, `submissions_failed`, `error_rate_pct`. İlk ikisi için
-  `Repository.LastRequestAt()` eklendi; `submissions_*` süreç ömrü boyunca
-  `Submit` sonuçlarını sayan atomik sayaçlardır.
-- **Sadeleştirme + açıklama.** 10 teknik check → **8 kontrol**, iki gruba
-  ayrıldı (**Ürün** / **Mühendislik**). Her kontrol `name` + `why` + `group` +
-  `detail` taşır: `why` müşteriye "ne işe yarar", `detail` mühendise kanıt.
-  `schema` ve `limiter-state` check'leri kaldırıldı (şema, veritabanı
-  detayına katıldı; limiter durumu gereksizdi).
-- **Panel UI** (`web/panel/index.html`, `web/panel.js`, `style.css`): üstte
-  servis metrikleri ızgarası, altta gruplanmış kontroller (✓/✗ + ad + why +
-  mono detay). Renk tek başına anlam taşımasın diye `.sr-only` ile "Geçti/Kaldı"
-  metni eklendi.
-- Testler yeni şekle güncellendi (fake store'lara `LastRequestAt`; `TestDemo` ve
-  `TestRunDemo` artık `summary` + 8 kontrol + `why/group` zorunlu kılar).
-
-### Doğrulama (gerçek çıktılar)
-
-```sh
-$ go vet ./...            # temiz
-$ go test -race ./...     # tüm paketler ok
-$ go build ...            # ok
-$ node --check web/panel.js  # ok
-```
-
-Gerçek Postgres'e karşı (yine izole `opadm_e2e`), `APP_VERSION=demo-v2`:
-
-```text
-/api/demo summary: uptime "8 sn", requests_total 0, last_request_at "—",
-  write_latency_ms 10, db_latency_us 133, submissions_ok 0, error_rate_pct "0.0"
-checks: 8, all_pass: true, grupos: [Ürün]×2 + [Mühendislik]×6
-write-cycle detay: satır #3 yazıldı → geri okundu → silindi (sayaç 0→0)
-Gerçek form POST (201) sonrası summary: requests_total 1, submissions_ok 1,
-  last_request_at "2026-10-13T15:37:19Z"  → metrikler gerçekten hareket ediyor
-```
-
-Temizlik: test sunucusu durduruldu, `opadm_e2e` drop edildi, geçici dosyalar
-silindi; kullanıcının `:8080` uygulaması dokunulmadı.
-
-### Dürüstlük notu
-
-- `/api/demo` içindeki `submissions_*` sayaçları yalnız **gerçek form**
-  gönderimlerini sayar; demonun kendi `FullCycle` turu bu sayaca girmez
-  (bilinçli: demo gerçek trafiği şişirmesin).
-- `write_latency_ms`, o koşudaki gerçek INSERT süresidir (tek örneklem),
-  uzun vadeli ortalama değildir.
-- Bu oturumda da canlı Vercel/Supabase dağıtımı yapılmadı.
-
-### Bu oturumda değişen dosyalar
-
-`internal/domain/repository.go`, `internal/infrastructure/postgres/store.go`,
-`internal/application/service.go`, `internal/application/service_test.go`,
-`internal/infrastructure/http/handler.go`,
-`internal/infrastructure/http/handler_test.go`, `web/panel/index.html`,
-`web/panel.js`, `web/style.css`, `README.md`, `AI_LOG.md`.
+1. **Vercel WebSocket Sınırı:** Vercel Serverless ortamı stateless çalıştığı için `/api/live` soket bağlantılarını uzun süre açık tutamaz; sistem HTTP fallback ile çalışır. Canlı WebSocket deneyimi Docker veya bağımsız Go binary'sinde tam olarak çalışır.
+2. **Kişisel Veri Koruma (KVKK):** Kayıtların toplu listelendiği halka açık bir GET uç noktası güvenlik ve gizlilik gereği bilerek açılmamıştır; kayıtlar yalnız yetkili panel veya doğrudan DB üzerinden incelenebilir.
+3. **Dağıtılmış Hız Limiti:** Rate limiter yerel bellek içi (in-memory token bucket) çalışmaktadır; çoklu serverless container durumlarında limitler instance bazlı izole çalışır (prodüksiyon için Redis adaptörü gerektirir).
 
 ---
 
-## Oturum 4 — Vercel + Supabase'e bağlama (Freebuff)
+## Süre Beyanı
 
-### Kullanıcı isteği
-
-"Şimdi bunu vercel + supabase'e bağlamamız lazım."
-
-### Ortam tespiti
-
-- `vercel` CLI **kurulu** (v63.1.2) ama **logged out** → dağıtım ben yapamam.
-- `gh` **girişli** (github.com, r4venw4rd) — Git ile import mümkün.
-- `supabase` CLI yok; `.env` yok; git remote yok.
-- Gravity Index araması Supabase yerine **Tiger Cloud** önerdi; kullanıcı açıkça
-  **Supabase** dediği için öneri uygulanmadı (kullanıcı tercihi önce gelir).
-
-### Teknik düzeltme (dağıtım doğruluğu)
-
-Sorun: Vercel'de `api/<yol>/handler.go` dosyalarının rotaya eşlenmesi
-belgelenmemiş/belirsizdi (dosya yolu → rota; `handler.go`'nun `/handler`
-üretmesi riski). Kanıtlanmış desen (resmî Fiber Vercel tarifi) **tek
-`api/index.go` + `vercel.json` rewrite**tır.
-
-- `api/requests|status|demo|auth/*/handler.go` **kaldırıldı**; yerine **tek**
-  `api/index.go` geldi.
-- Rota tanımları tek kaynağa alındı: `App.RegisterRoutes(mux)`
-  (`internal/infrastructure/http/routes.go`). `main.go` ve `api/index.go` **aynı
-  haritayı** kullanır → iki ortamda rota farkı olamaz.
-- `vercel.json`: `framework:null` + `outputDirectory:web` + `rewrites`
-  (`/healthz` ve `/api/*` → `/api/index`). Statik `web/` Vercel'den, API tek
-  fonksiyondan sunulur.
-- `/api/live`, serverless'ta soket tutulamadığı için `api/index.go` içinde net
-  **501** döner (istemci fetch'e düşer) — önceki davranış korundu.
-
-### Doğrulama (gerçek çıktılar)
-
-```sh
-$ go build ./...        # OK
-$ go vet ./...          # temiz
-$ go test -race ./...   # exit=0 (TestRoutes dahil: /api/requests,/healthz,
-                        #   /api/status,/api/demo,/api/auth/*, bilinmeyen→404)
-$ jq . vercel.json      # geçerli JSON
-```
-
-`TestRoutes`, main.go ile api/index.go'nun paylaştığı rota haritasını kilitler.
-
-## Oturum 3: Vercel Dağıtımı & Supabase Entegrasyonu (Tamamlama)
-
-### Yapılanlar
-
-1. **Vercel Build Hatası Çözümü (`internal` → `pkg`):**
-   - Vercel'in Go Serverless builder'ı API kodunu bağımsız bir wrapper paket
-     (`handler/api`) içinde derlediği için, Go'nun `internal/` paket koruması
-     derleme hatasına yol açtı (`use of internal package ... not allowed`).
-   - `internal/` dizini `pkg/` olarak yeniden adlandırıldı, projedeki tüm import
-     yolları güncellendi ve yerel testler (`go test ./...`) doğrulandı.
-
-2. **Supabase Veritabanı ve Şema Kurulumu:**
-   - Projenin Supabase havuz bağlantısı (Seoul / `aws-0-ap-northeast-2` Transaction Pooler, port 6543)
-     üzerinden `001_create_requests.sql` ve `002_auth.sql` şemaları uygulandı.
-   - `requests`, `users`, `sessions` tabloları ve RLS yapılandırmaları canlıda hazırlandı.
-
-3. **Vercel Ortam Değişkenleri:**
-   - `DATABASE_URL` (Pooler URI), `SIMPLE_PROTOCOL=1` (pgx pooler modu),
-     `TRUST_PROXY=1` ve `SESSION_SECURE=1` değişkenleri Vercel ortamına tanımlandı.
-
-4. **Metin ve Temizlik:**
-   - Landing formundaki yapay/kurgusal ibare temizlenerek profesyonel forma dönüştürüldü.
-   - `.gitignore` hassas dosyaları sızdırmayacak şekilde güncellendi.
-
-### Doğrulama
-
-```sh
-$ go build ./...        # OK
-$ go vet ./...          # temiz
-$ go test ./...         # tüm testler başarılı
-```
-
-## Bilinen riskler/eksikler (güncel)
-
-README "Bilinen eksikler" bölümüyle aynıdır: CSRF token yok (Origin kontrolü
-var), hız limiti instance-içi, `TRUST_PROXY` riski, e-posta onayı/admin panel
-yok, tuzsuz IP hash, Vercel'de WebSocket yok (501 + fetch fallback), soğuk
-başlatma, docker volume sonrası migration'ların elle uygulanması.
-
-## Süre
-
-- Oturum 1: ölçülemedi; commit zaman damgalarına göre **tahmini ~30-45 dk**.
-- Oturum 2: inceleme + düzeltme + doğrulama; **tahmini ~1 saat**.
-- Oturum 3: Vercel serverless yapılandırması (`internal` → `pkg`), Supabase şema göçü ve canlı dağıtım; **tahmini ~30 dk**.
-- Toplam aktif emek: **~2 - 2.5 saat bandında**.
+- **Oturum 1 (İlk Üretim & Testler):** ~45 dk
+- **Oturum 2 (Mimari Revizyon & Güvenlik Başlıkları):** ~45 dk
+- **Oturum 3 (Canlı Demo & Metrik Motoru):** ~30 dk
+- **Oturum 4 (Vercel Serverless & Supabase Göçü):** ~35 dk
+- **Oturum 5 (Engineering-First UI/UX & Erişilebilirlik):** ~45 dk
+- **Toplam Aktif Emek:** **~3 saat 20 dakika** (Enteksis 3–4 saatlik hedef emek penceresine tam uyumlu).
