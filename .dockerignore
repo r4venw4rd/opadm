@@ -1,0 +1,6 @@
+data/
+*.db
+*.db-*
+opadm
+/opadm
+.git/
