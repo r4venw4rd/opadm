@@ -24,8 +24,10 @@ func env(key, fallback string) string {
 // securityHeaders, her yanıta temel başlıkları ekler.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CSP sıkı: her şey same-origin; form fetch'i de same-origin.
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+		// CSP sıkı: her şey same-origin. Tek istisna, tema kırpışmasını önleyen
+		// minik inline script; sha256 hash'i sabit olduğu için allowlist'te.
+		// index.html'deki script değişirse bu hash YENİDEN hesaplanmalı.
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self' 'sha256-V/E0ZGUezEoOvey9qly2gDBIJn5K3JVU/Qm5IykSSkk='; img-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")

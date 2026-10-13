@@ -96,6 +96,14 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
   (6 check, yazma/kota yok) + üyelik (bcrypt, jeton özeti, HttpOnly çerez, giriş
   arkası demo). Testler: TestAuth + TestAuthFlow (201/409/400/401/me/logout).
   `go vet` + `go test -race` yeşil.
+- Frontend toparlama (kullanıcı fiziksel kısmı güncellemişti, AI mismatch
+  avladı): Tailwind CDN silindi (CSP `script-src 'self'` ile bloklanıyordu,
+  class da kullanılmıyordu); Google Fonts self-host edildi (`web/fonts/`,
+  CSP katı kaldı); inline tema script'i sha256 allowlist ile yaşatıldı;
+  demo buton kapısı `loggedIn` bayrağına bağlandı; postAuth'a timeout;
+  light-theme yeşil metinler #15803d (4.79:1), skip/nav-cta/btn-ghost renkleri
+  temaya bağlandı; hero-meta wrap; "%100" iddiası "Her kurulumda" oldu.
+  Kontrastlar hesapla, hash sayfadan yeniden türetilerek doğrulandı.
 - "Canlı durum" demosu (`GET /api/status` + sayfada sayaç bölümü) **kullanıcı
   fikri** ("docker üzerinden reel demo, sistem bilgileri çeken demomsu şey").
   Kişisel veri dönmez (uptime, saat, toplam kayıt); form başarısı sayacı

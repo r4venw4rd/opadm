@@ -147,11 +147,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch {
       msg.textContent = "Demo alınamadı: bağlantınızı kontrol edin.";
     } finally {
-      demoBtn.disabled = false;
+      demoBtn.disabled = !loggedIn; // kapı refreshMe ile aynı kaynaktan
     }
   });
 
   // --- Hesap: üye ol / giriş yap / çıkış. Demo giriş ister.
+  let loggedIn = false; // demo buton kapısının tek kaynağı
   async function refreshMe() {
     const msg = $("account-msg");
     let email = "";
@@ -160,24 +161,34 @@ document.addEventListener("DOMContentLoaded", async () => {
       const data = await res.json();
       if (res.ok && data.ok === true) email = String(data.email || "");
     } catch { /* girişsiz say */ }
-    const loggedIn = email !== "";
-    $("account-logged-out").hidden = loggedIn;
-    $("account-logged-in").hidden = !loggedIn;
-    if (loggedIn) $("account-email").textContent = email; // textContent: güvenli
-    demoBtn.disabled = !loggedIn;
-    if (!loggedIn) msg.textContent = "";
-    return loggedIn;
+    const wasIn = email !== "";
+    loggedIn = wasIn;
+    $("account-logged-out").hidden = wasIn;
+    $("account-logged-in").hidden = !wasIn;
+    if (wasIn) $("account-email").textContent = email; // textContent: güvenli
+    demoBtn.disabled = !wasIn;
+    if (!wasIn) msg.textContent = "";
+    return wasIn;
   }
 
   async function postAuth(path, email, password) {
-    const res = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    let data = {};
-    try { data = await res.json(); } catch { /* yoksay */ }
-    return { res, data };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        signal: ctrl.signal,
+      });
+      let data = {};
+      try { data = await res.json(); } catch { /* yoksay */ }
+      return { res, data };
+    } catch {
+      return { res: { ok: false, status: 0 }, data: {} };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function authErr(id, text) {
@@ -283,13 +294,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       let data = {};
       try { data = await res.json(); } catch { /* JSON dışı gövde: hata say */ }
       if (res.status === 201 && data.ok === true) {
+        hideFormErrors();
         status("Talebiniz alındı. Ortalama 2 iş günü içinde dönüş yaparız.", "ok");
         form.reset();
         refreshStatus(); // demoda sayaç artar görünür
       } else if (res.status === 400 && data.errors) {
         fields.forEach((f) => setErr(f, (data.errors || {})[f] || ""));
-        const first = fields.find((f) => (data.errors || {})[f]);
-        if (first) $(first).focus();
+        showFormErrors(data.errors || {});
         status("Formda hata var, kontrol edip tekrar deneyin.", "error");
       } else if (res.status === 429) {
         status("Çok fazla istek gönderdiniz. Bir dakika sonra tekrar deneyin.", "error");

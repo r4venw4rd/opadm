@@ -1,3 +1,12 @@
+/* Self-hosted: Google Fonts CDN yerine (CSP 'self' ile uyumlu, çevrimdışı da çalışır). */
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("/fonts/jbmono-latin.woff2") format("woff2");
+}
 :root {
   --bg: #0f172a;
   --bg-2: #10192e;
@@ -58,7 +67,7 @@ body {
   background-size: auto, auto, 44px 44px, 44px 44px;
 }
 .wrap { max-width: 68rem; margin: 0 auto; padding: 0 1.25rem; }
-.skip { position: absolute; left: -999px; top: 0; background: var(--fg); color: #000; padding: 0.75rem 1rem; z-index: 10; border-radius: 0 0 0.5rem 0; }
+.skip { position: absolute; left: -999px; top: 0; background: var(--fg); color: var(--accent-ink); padding: 0.75rem 1rem; z-index: 10; border-radius: 0 0 0.5rem 0; }
 .skip:focus { left: 0; }
 
 /* header */
@@ -86,9 +95,9 @@ nav a:hover { color: var(--fg); }
 .theme-btn:hover { border-color: var(--accent); }
 .nav-cta {
   border: 1px solid var(--border-strong); border-radius: 999px; padding: 0 1.1rem;
-  color: #fff !important; background: rgba(255, 255, 255, 0.06);
+  color: var(--fg); background: rgba(127, 127, 127, 0.12);
 }
-.nav-cta:hover { background: rgba(255, 255, 255, 0.12); }
+.nav-cta:hover { background: rgba(127, 127, 127, 0.22); }
 
 /* hero */
 .hero {
@@ -107,7 +116,7 @@ nav a:hover { color: var(--fg); }
 .hl { color: var(--accent); }
 .lede { color: var(--muted-2); font-size: 1.1rem; max-width: 34rem; margin: 0 0 1.6rem; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.8rem; }
-.hero-meta { display: flex; gap: 2rem; list-style: none; margin: 0; padding: 1.2rem 0 0; border-top: 1px solid var(--border); }
+.hero-meta { display: flex; flex-wrap: wrap; gap: 1rem 2rem; list-style: none; margin: 0; padding: 1.2rem 0 0; border-top: 1px solid var(--border); }
 .hero-meta li { display: grid; gap: 0.1rem; }
 .hero-meta strong { font-size: 1.15rem; }
 .hero-meta span { color: var(--muted); font-size: 0.85rem; }
@@ -118,6 +127,14 @@ nav a:hover { color: var(--fg); }
   background: var(--panel); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
 }
 [data-theme="light"] .hero-terminal { box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12); }
+/* Açık temada küçük yeşil metinler: #16a34a kontrastı yetmez, koyulaştır. */
+[data-theme="light"] .tag,
+[data-theme="light"] .live-badge,
+[data-theme="light"] .step-n,
+[data-theme="light"] .t-green,
+[data-theme="light"] .hl { color: #15803d; }
+[data-theme="light"] .tag { border-color: rgba(21, 128, 61, 0.45); background: rgba(21, 128, 61, 0.08); }
+[data-theme="light"] .live-badge { border-color: rgba(21, 128, 61, 0.45); background: rgba(21, 128, 61, 0.08); }
 [data-theme="light"] .bg-fx {
   background:
     radial-gradient(42rem 22rem at 15% -5%, rgba(22, 163, 74, 0.12), transparent 60%),
@@ -235,8 +252,8 @@ select option { background: var(--panel); color: var(--fg); }
 }
 .btn-primary { background: var(--accent); color: var(--accent-ink); }
 .btn-primary:hover { background: #4ade80; transform: translateY(-1px); }
-.btn-ghost { border-color: var(--border-strong); color: #fff; background: rgba(255, 255, 255, 0.05); }
-.btn-ghost:hover { background: rgba(255, 255, 255, 0.1); }
+.btn-ghost { border-color: var(--border-strong); color: var(--fg); background: rgba(127, 127, 127, 0.1); }
+.btn-ghost:hover { background: rgba(127, 127, 127, 0.2); }
 .btn-block { width: 100%; }
 .btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
 

@@ -188,6 +188,9 @@ DB tarafında aynı kurallar CHECK constraint olarak da var (ikinci savunma).
 
 - Kütüphane: `github.com/jackc/pgx/v5` (Postgres sürücüsü). Eski `modernc.org/sqlite` kaldırıldı.
 - Şablon/hazır tema kullanılmadı; HTML/CSS/JS el yazımı.
+- Fontlar self-hosted (`web/fonts/`: Inter + JetBrains Mono, OFL lisanslı);
+  Google Fonts/Tailwind CDN yok — CSP `script-src 'self'` + inline tema hash'i ile uyumlu.
+  Tek istisna inline tema script'idir (sha256 allowlist, `main.go`'da notlu).
 
 ## AI ile nasıl çalışıldı (özet)
 
