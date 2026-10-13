@@ -220,8 +220,15 @@ func (a *App) pushLive() {
 	a.LiveHub.Push(b)
 }
 
-// Status, GET /api/status. Kişisel veri içermez.
+// Status, GET /api/status. Giriş ister (panel sayfası arkası);
+// kişisel veri içermez ama sistem bilgisi girişe özeldir.
 func (a *App) Status(w http.ResponseWriter, r *http.Request) {
+	if _, ok, _ := a.currentUser(r); !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{
+			"ok": false, "error": "Durum için giriş yapın.",
+		})
+		return
+	}
 	m, err := a.snapshotMap()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false})
@@ -236,6 +243,10 @@ func (a *App) Status(w http.ResponseWriter, r *http.Request) {
 func (a *App) Live(w http.ResponseWriter, r *http.Request) {
 	if !domain.AllowedOrigin(r.Host, r.Header.Get("Origin"), "") {
 		http.Error(w, "Geçersiz istek kaynağı.", http.StatusForbidden)
+		return
+	}
+	if _, ok, _ := a.currentUser(r); !ok {
+		http.Error(w, "Durum için giriş yapın.", http.StatusUnauthorized)
 		return
 	}
 	conn, err := websocket.Accept(w, r, nil)

@@ -205,9 +205,6 @@ h2 { font-size: 1.6rem; letter-spacing: -0.02em; margin: 0 0 0.4rem; }
 .status-grid dd { margin: 0; font-family: var(--mono); font-size: 0.95rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-actions { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-top: 1.2rem; }
 #status-msg, #demo-msg, #account-msg { color: var(--muted); margin: 0; min-height: 1.5em; }
-.auth-grid { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }
-@media (min-width: 800px) { .auth-grid { grid-template-columns: 1fr 1fr; } }
-.auth-grid h3 { margin-top: 0; }
 .demo-list { list-style: none; margin: 0 0 0.5rem; padding: 0; display: grid; gap: 0.5rem; }
 .demo-list li { border: 1px solid var(--border); border-radius: 0.7rem; padding: 0.7rem 1rem; background: var(--chip-bg); }
 .demo-list li[data-pass="yes"] { border-color: rgba(34, 197, 94, 0.5); }

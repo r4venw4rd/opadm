@@ -92,6 +92,11 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
   application (Submit/Snapshot/RunDemo) + infrastructure (http/postgres/ratelimit);
   handler ince adaptör. `/api/demo` + sayfada "Canlı demo" bölümü: 6 check canlı
   koşar, yazma/kota yok. `go vet` + `go test -race` yeşil (domain/app/http/pg-skip/ratelimit).
+- Gerçek platform isteği **kullanıcıdan** ("login ve üye olma için ayrı
+  sayfalar, durum/demo authenticated olunca görülsün"): `/login/`, `/signup/`,
+  giriş arkası `/panel/` (girişsiz `/login/'e yollanır); `/api/status` ve soket
+  de kapı arkasında (401); JS sayfa başına bölündü (theme/landing/auth/panel),
+  ID çapraz kontrolü script'le doğrulandı; ölü `.auth-grid` CSS'i silindi.
 - Polling yerine soket **kullanıcı önerisi** ("polling ile yaptığın şeyleri
   sokete ekle"): `GET /api/live` WebSocket (hub + 5 sn ticker + kayıt push'u),
   sayfa sokete bağlanır, olmazsa fetch'e düşer (3 deneme cap'i). Vercel

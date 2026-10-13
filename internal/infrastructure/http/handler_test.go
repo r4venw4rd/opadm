@@ -348,15 +348,29 @@ func TestTrustProxyDefaultOff(t *testing.T) {
 
 func TestStatus(t *testing.T) {
 	app := newTestApp(t, 100)
-	get := func() (int, map[string]any) {
+	get := func(cookie string) (int, map[string]any) {
 		req := httptest.NewRequest("GET", "/api/status", nil)
+		if cookie != "" {
+			req.AddCookie(&stdhttp.Cookie{Name: sessionCookie, Value: cookie})
+		}
 		rec := httptest.NewRecorder()
 		app.Status(rec, req)
 		var out map[string]any
 		_ = json.Unmarshal(rec.Body.Bytes(), &out)
 		return rec.Code, out
 	}
-	code, out := get()
+	// Girişsiz 401.
+	if code, _ := get(""); code != 401 {
+		t.Fatalf("girişsiz status: kod = %d, istendi 401", code)
+	}
+	if rec, _ := doAuth(t, app, "/api/auth/signup", `{"email":"s@e.co","password":"gizli-parola-1"}`, ""); rec.Code != 201 {
+		t.Fatalf("signup: %d", rec.Code)
+	}
+	_, ck := doAuth(t, app, "/api/auth/login", `{"email":"s@e.co","password":"gizli-parola-1"}`, "")
+	if ck == "" {
+		t.Fatal("login çerez vermedi")
+	}
+	code, out := get(ck)
 	if code != 200 || out["ok"] != true || out["requests_total"] != float64(0) {
 		t.Fatalf("boş status bekleniyordu: %d %v", code, out)
 	}
@@ -371,7 +385,7 @@ func TestStatus(t *testing.T) {
 	if rec := postJSON(t, app, validBody(), "application/json"); rec.Code != 201 {
 		t.Fatalf("kayıt 201 bekleniyordu: %d", rec.Code)
 	}
-	if code, out := get(); code != 200 || out["requests_total"] != float64(1) {
+	if code, out := get(ck); code != 200 || out["requests_total"] != float64(1) {
 		t.Fatalf("kayıt sonrası total=1 bekleniyordu: %d %v", code, out)
 	}
 }

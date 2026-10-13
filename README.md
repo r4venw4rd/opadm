@@ -31,7 +31,10 @@ internal/infrastructure/ratelimit/   IP başına limit (10/dk) + janitor + Peek
 internal/{domain,application}/..._test.go katman testleri (fake repo, DB'siz)
 internal/infrastructure/http/handler_test.go uç testler (fake repo ile 201/400/403/429/500/demo)
 internal/infrastructure/postgres/store_test.go TEST_DATABASE_URL ile entegrasyon (yoksa skip)
-web/                                 statik frontend (Vercel'de outputDirectory)
+web/                                 sayfalar + sayfa JS'leri (her sayfa yalnız
+                                 kullandığını yükler; ortak inline tema hash'i)
+  / → tanıtım + açık talep formu · /login/ + /signup/ → üyelik
+  /panel/ → giriş arkası canlı durum + demo (girişsiz /login/'e yollanır)
 supabase/migrations/001_create_requests.sql  tablo + CHECK + RLS (dashboard'da 1 kez)
 vercel.json, Dockerfile, docker-compose.yml (app + yerel postgres), .env.example
 ```
@@ -82,7 +85,8 @@ Birim testler fake repo ile DB'siz koşar: geçerli kayıt (201 + kayıt var +
 e-posta normalize), geçersiz e-posta (400 + kayıt yok), alan uzunlukları,
 geçersiz service, bilinmeyen alan / yanlış Content-Type (415) / 16 KB üstü
 body, DB arızası (500, başarı yok), rate limit (429), yabancı Origin (403),
-TRUST_PROXY kapalı/açık, limiter temizliği, `/healthz`, `/api/status` (sayaç 0→1),
+TRUST_PROXY kapalı/açık, limiter temizliği, `/healthz`, `/api/status` (girişsiz 401,
+girişli sayaç 0→1),
 `/api/demo` (6 check geçer, yazma/kota yok; girişli),
 üyelik akışı (201/409/401/me/logout/demo-kapısı). Domain ve application katmanlarının
 ayrı testleri var (Validate/Normalize/AllowedOrigin, Submit/RunDemo/Snapshot).
@@ -134,7 +138,8 @@ durur (7 gün); ölü oturumlar saatte bir süpürülür. Demo endpoint'i giriş
 
 `GET /healthz` → `{"ok":true}` (DB ping'i başarısızsa 500).
 
-`GET /api/status` → kişisel veri içermez; sayfadaki "Canlı durum" bölümü buradan beslenir:
+`GET /api/status` → **giriş ister** (çerez yoksa 401). Kişisel veri içermez ama
+sistem bilgisidir; `/panel/` arkasından beslenir:
 
 ```jsonc
 {"ok":true,"time":"2026-10-13T13:52:11Z","uptime_s":1,"requests_total":1,
