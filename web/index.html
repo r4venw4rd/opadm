@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>opadm — Sunucu bakım ve yedekleme</title>
+<meta name="description" content="opadm: küçük ekipler için sunucu bakım, yedekleme kurulumu ve izleme.">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#form-heading">Forma atla</a>
+<header class="wrap site-header">
+  <p class="brand">opadm</p>
+  <nav aria-label="Sayfa bölümleri">
+    <a href="#hizmetler">Hizmetler</a>
+    <a href="#nasil">Nasıl çalışır</a>
+    <a href="#talep">Talep formu</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <section class="hero" aria-labelledby="hero-heading">
+    <h1 id="hero-heading">Sunucunuz gece çöktüğünde yedeğinizin çalıştığından emin olun.</h1>
+    <p>Tam zamanlı DevOps'çusu olmayan küçük ekipler için bakım, yedekleme ve izleme kurulumu yapıyoruz.</p>
+    <a class="btn" href="#talep">Talep oluştur</a>
+  </section>
+
+  <section aria-labelledby="problem-heading">
+    <h2 id="problem-heading">Tanıdık sorunlar</h2>
+    <ul class="grid">
+      <li>Sunucu gece çöküyor, haberiniz sabah oluyor.</li>
+      <li>Yedek alınıyor ama geri yükleme hiç denenmemiş.</li>
+      <li>Güvenlik güncellemelerini takip edecek kimse yok.</li>
+    </ul>
+  </section>
+
+  <section id="hizmetler" aria-labelledby="services-heading">
+    <h2 id="services-heading">Hizmetler</h2>
+    <div class="grid cards">
+      <article>
+        <h3>Yedekleme kurulumu</h3>
+        <p>Otomatik yedek ve kurulum sonrası birlikte geri yükleme testi.</p>
+      </article>
+      <article>
+        <h3>İzleme ve alarm</h3>
+        <p>Çalışma süresi, disk ve servis durumu için e-posta alarmı.</p>
+      </article>
+      <article>
+        <h3>Güvenlik sıkılaştırma</h3>
+        <p>SSH, güvenlik duvarı ve güncelleme politikası kurulumu.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="nasil" aria-labelledby="steps-heading">
+    <h2 id="steps-heading">Nasıl çalışır</h2>
+    <ol class="grid steps">
+      <li><strong>1. Talep:</strong> Aşağıdaki formu doldurun.</li>
+      <li><strong>2. Keşif görüşmesi:</strong> Ücretsiz, 30 dakikalık çevrimiçi görüşme.</li>
+      <li><strong>3. Kurulum:</strong> Birlikte kararlaştırdığımız kapsamı kurarız.</li>
+    </ol>
+  </section>
+
+  <section id="talep" aria-labelledby="form-heading">
+    <h2 id="form-heading">Talep formu</h2>
+    <p id="form-desc">Tüm alanlar zorunludur. Ortalama yanıt süremiz 2 iş günüdür.</p>
+    <form id="request-form" action="/api/requests" method="post" novalidate aria-describedby="form-desc">
+      <div class="field">
+        <label for="name">Adınız</label>
+        <input id="name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="80" aria-describedby="name-err">
+        <p class="err" id="name-err" hidden></p>
+      </div>
+      <div class="field">
+        <label for="email">E-posta</label>
+        <input id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="email-err">
+        <p class="err" id="email-err" hidden></p>
+      </div>
+      <div class="field">
+        <label for="service">Hizmet</label>
+        <select id="service" name="service" required aria-describedby="service-err">
+          <option value="">Seçin…</option>
+          <option value="backup">Yedekleme kurulumu</option>
+          <option value="monitoring">İzleme ve alarm</option>
+          <option value="hardening">Güvenlik sıkılaştırma</option>
+        </select>
+        <p class="err" id="service-err" hidden></p>
+      </div>
+      <div class="field">
+        <label for="message">Mesajınız</label>
+        <textarea id="message" name="message" rows="5" required minlength="10" maxlength="1000" aria-describedby="message-err"></textarea>
+        <p class="err" id="message-err" hidden></p>
+      </div>
+      <button class="btn" type="submit" id="submit-btn">Gönder</button>
+      <p id="form-status" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+</main>
+
+<footer class="wrap site-footer">
+  <p>opadm — küçük ekipler için sunucu bakımı.</p>
+  <p>Bu sayfa değerlendirme amaçlı kurgusal bir hizmettir; gerçek talep toplanmaz.</p>
+</footer>
+</body>
+</html>
