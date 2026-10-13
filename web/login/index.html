@@ -14,6 +14,14 @@
 <a class="skip" href="#login-heading">Giriş formuna atla</a>
 <div class="bg-fx" aria-hidden="true"></div>
 
+<!-- Fictional Sandbox Banner -->
+<aside class="sandbox-banner" aria-label="Ortam bilgisi">
+  <div class="wrap sandbox-banner-inner">
+    <span class="sandbox-pill"><span class="sandbox-pill-dot" aria-hidden="true"></span> Sandbox Test Environment</span>
+    <span class="sandbox-text">Bu proje teknik değerlendirme amaçlı kurgulanmıştır; <strong>gerçek talep toplanmaz</strong>.</span>
+  </div>
+</aside>
+
 <header class="wrap site-header">
   <p class="brand"><a href="/" aria-label="opadm ana sayfa"><span class="brand-mark" aria-hidden="true">$</span> opadm</a></p>
   <nav aria-label="Sayfa bölümleri">
@@ -23,31 +31,39 @@
 </header>
 
 <main class="wrap">
-  <section aria-labelledby="login-heading">
-    <h1 id="login-heading">Giriş yap</h1>
-    <p class="sec-sub">Giriş yapınca canlı durum ve demo paneli açılır.</p>
-    <div class="status-panel">
+  <div class="auth-wrapper">
+    <section class="auth-card" aria-labelledby="login-heading">
+      <div class="auth-header">
+        <h1 id="login-heading">Giriş yap</h1>
+        <p class="sec-sub">Canlı izleme ve mühendislik demo panelini açın.</p>
+      </div>
+
       <form id="login-form" novalidate>
         <div class="field">
-          <label for="li-email">E-posta</label>
-          <input id="li-email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="li-err">
+          <label for="li-email">E-posta adresi</label>
+          <input id="li-email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="li-err" placeholder="muhendis@sirket.com">
         </div>
         <div class="field">
           <label for="li-pass">Parola</label>
-          <input id="li-pass" type="password" autocomplete="current-password" required aria-describedby="li-err">
+          <input id="li-pass" type="password" autocomplete="current-password" required aria-describedby="li-err" placeholder="••••••••••••">
         </div>
         <p class="err" id="li-err" hidden></p>
-        <button class="btn btn-primary" type="submit" id="login-btn">Giriş yap</button>
+        <button class="btn btn-primary btn-block" type="submit" id="login-btn">Giriş yap</button>
       </form>
-      <p>Hesabın yok mu? <a href="/signup/">Üye ol</a></p>
-      <p id="account-msg" role="status" aria-live="polite"></p>
-    </div>
-  </section>
+
+      <div class="auth-footer">
+        <p>Hesabınız yok mu? <a href="/signup/">Hemen üye olun</a></p>
+        <p id="account-msg" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>
 </main>
 
 <footer class="wrap site-footer">
-  <p><span class="brand-mark" aria-hidden="true">$</span> <strong>opadm</strong> — küçük ekipler için sunucu bakımı.</p>
-  <p class="foot-dim">Bu sayfa değerlendirme amaçlı kurgusal bir hizmettir; gerçek talep toplanmaz.</p>
+  <div class="site-footer-inner">
+    <p><span class="brand-mark" aria-hidden="true">$</span> <strong>opadm</strong> — küçük ekipler için sunucu bakımı.</p>
+    <p class="foot-dim">Sandbox Test Environment &middot; Değerlendirme amaçlı kurgusal hizmettir.</p>
+  </div>
 </footer>
 </body>
 </html>

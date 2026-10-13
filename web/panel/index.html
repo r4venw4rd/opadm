@@ -14,28 +14,36 @@
 <a class="skip" href="#panel-heading">Panele atla</a>
 <div class="bg-fx" aria-hidden="true"></div>
 
+<!-- Fictional Sandbox Banner -->
+<aside class="sandbox-banner" aria-label="Ortam bilgisi">
+  <div class="wrap sandbox-banner-inner">
+    <span class="sandbox-pill"><span class="sandbox-pill-dot" aria-hidden="true"></span> Sandbox Test Environment</span>
+    <span class="sandbox-text">Bu proje teknik değerlendirme amaçlı kurgulanmıştır; <strong>gerçek talep toplanmaz</strong>.</span>
+  </div>
+</aside>
+
 <header class="wrap site-header">
   <p class="brand"><a href="/" aria-label="opadm ana sayfa"><span class="brand-mark" aria-hidden="true">$</span> opadm</a></p>
   <nav aria-label="Sayfa bölümleri">
-    <span id="panel-user" class="sec-sub" role="status" aria-live="polite"></span>
-    <button class="btn" type="button" id="logout-btn">Çıkış yap</button>
+    <span id="panel-user" role="status" aria-live="polite"></span>
+    <button class="btn btn-ghost" type="button" id="logout-btn">Çıkış yap</button>
     <button class="theme-btn" type="button" id="theme-btn" aria-label="Açık temaya geç">☾</button>
   </nav>
 </header>
 
 <main class="wrap">
-  <section aria-labelledby="panel-heading">
-    <h1 id="panel-heading">Panel</h1>
-    <p class="sec-sub" id="panel-sub">Canlı durum ve özellik demosu. Girişsiz açılırsa girişe yönlendirilirsin.</p>
+  <section aria-labelledby="panel-heading" style="padding-bottom: 1rem;">
+    <h1 id="panel-heading">Sistem ve İzleme Paneli</h1>
+    <p class="sec-sub" id="panel-sub">Canlı telemetri, bellek tahsisi ve 8 mühendislik kontrolünün simülasyonu.</p>
   </section>
 
   <section id="durum" aria-labelledby="status-heading">
     <div class="status-head">
       <div>
-        <h2 id="status-heading">Canlı durum</h2>
-        <p class="sec-sub">Soket açıksa 5 saniyede bir tazelenir; yoksan "Durumu yenile" çalışır.</p>
+        <h2 id="status-heading">Canlı Sistem Durumu</h2>
+        <p class="sec-sub" style="margin-bottom: 0;">WebSocket (/api/live) aktifse anlık veri akar; kapalıysa butonla tetiklenir.</p>
       </div>
-      <p class="live-badge"><span class="pulse" aria-hidden="true"></span> LIVE</p>
+      <p class="live-badge"><span class="pulse" aria-hidden="true"></span> WS_ACTIVE</p>
     </div>
     <div class="status-panel">
       <dl class="status-grid">
@@ -57,10 +65,10 @@
   </section>
 
   <section id="demo" aria-labelledby="demo-heading">
-    <h2 id="demo-heading">Canlı demo</h2>
-    <p class="sec-sub">Düğmeye basınca aşağıdaki kontroller bu sunucuda gerçekten çalışır; kalıcı kayıt bırakmaz, kota yakmaz.</p>
+    <h2 id="demo-heading">Canlı Mühendislik Doğrulaması</h2>
+    <p class="sec-sub">Butona basıldığında 8 kritik DevOps ve mimari kontrol bu sunucuda gerçek zamanlı test edilir.</p>
     <div class="status-panel">
-      <h3 class="demo-sub" id="demo-summary-heading">Servis metrikleri</h3>
+      <h3 class="demo-sub" id="demo-summary-heading">Servis Metrikleri & Gecikmeler</h3>
       <dl class="status-grid" id="demo-summary" aria-labelledby="demo-summary-heading">
         <div><dt>Çalışma süresi</dt><dd id="ds-uptime">—</dd></div>
         <div><dt>Toplam kayıt</dt><dd id="ds-total">—</dd></div>
@@ -71,9 +79,9 @@
         <div><dt>Başarısız</dt><dd id="ds-fail">—</dd></div>
         <div><dt>Hata oranı <span class="unit">%</span></dt><dd id="ds-rate">—</dd></div>
       </dl>
-      <h3 class="demo-sub" id="demo-checks-heading">Özellik kontrolü</h3>
+      <h3 class="demo-sub" id="demo-checks-heading">8 Mühendislik Kontrolü</h3>
       <div id="demo-list" class="demo-list" aria-labelledby="demo-checks-heading">
-        <p class="demo-empty">Henüz çalıştırılmadı — düğmeye basın.</p>
+        <p class="demo-empty">Henüz test çalıştırılmadı — kontrolleri başlatmak için butona basın.</p>
       </div>
       <div class="status-actions">
         <button class="btn btn-primary" type="button" id="demo-btn">Özellikleri dene</button>
@@ -84,8 +92,10 @@
 </main>
 
 <footer class="wrap site-footer">
-  <p><span class="brand-mark" aria-hidden="true">$</span> <strong>opadm</strong> — küçük ekipler için sunucu bakımı.</p>
-  <p class="foot-dim">Bu sayfa değerlendirme amaçlı kurgusal bir hizmettir; gerçek talep toplanmaz.</p>
+  <div class="site-footer-inner">
+    <p><span class="brand-mark" aria-hidden="true">$</span> <strong>opadm</strong> — küçük ekipler için sunucu bakımı.</p>
+    <p class="foot-dim">Sandbox Test Environment &middot; Değerlendirme amaçlı kurgusal hizmettir.</p>
+  </div>
 </footer>
 </body>
 </html>

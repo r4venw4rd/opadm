@@ -14,8 +14,16 @@
 <a class="skip" href="#form-heading">Forma atla</a>
 <div class="bg-fx" aria-hidden="true"></div>
 
+<!-- Fictional Sandbox Banner -->
+<aside class="sandbox-banner" aria-label="Ortam bilgisi">
+  <div class="wrap sandbox-banner-inner">
+    <span class="sandbox-pill"><span class="sandbox-pill-dot" aria-hidden="true"></span> Sandbox Test Environment</span>
+    <span class="sandbox-text">Bu proje teknik değerlendirme amaçlı kurgulanmıştır; <strong>gerçek talep toplanmaz</strong>.</span>
+  </div>
+</aside>
+
 <header class="wrap site-header">
-  <p class="brand"><span class="brand-mark" aria-hidden="true">$</span> opadm</p>
+  <p class="brand"><a href="/" aria-label="opadm ana sayfa"><span class="brand-mark" aria-hidden="true">$</span> opadm</a></p>
   <nav aria-label="Sayfa bölümleri">
     <a href="#hizmetler">Hizmetler</a>
     <a href="#nasil">Nasıl çalışır</a>
@@ -29,7 +37,7 @@
 <main class="wrap">
   <section class="hero" aria-labelledby="hero-heading">
     <div class="hero-copy">
-      <p class="eyebrow"><span class="pulse" aria-hidden="true"></span> Küçük ekipler için DevOps &middot; Bakım + Yedek + İzleme</p>
+      <div class="eyebrow"><span class="pulse" aria-hidden="true"></span> Küçük ekipler için DevOps &middot; Bakım + Yedek + İzleme</div>
       <h1 id="hero-heading">Sunucunuz gece çöktüğünde yedeğinizin <span class="hl">çalıştığından</span> emin olun.</h1>
       <p class="lede">Tam zamanlı DevOps'çusu olmayan ekipler için bakım, yedekleme ve izleme kurulumu yapıyoruz. Kurar, test eder, alarmı bağlar, belgeler teslim ederiz.</p>
       <div class="hero-actions">
@@ -53,7 +61,6 @@ uptime  disk  svc  <span class="t-green">OK OK OK</span>
 <span class="t-dim"># canlı durum panelde: giriş yap, soketten izle</span><span class="caret" aria-hidden="true">▊</span></code></pre>
     </div>
   </section>
-
 
   <section class="strip" aria-label="Güven göstergeleri">
     <ul>
@@ -181,8 +188,10 @@ uptime  disk  svc  <span class="t-green">OK OK OK</span>
 </main>
 
 <footer class="wrap site-footer">
-  <p><span class="brand-mark" aria-hidden="true">$</span> <strong>opadm</strong> — küçük ekipler için sunucu bakımı.</p>
-  <p class="foot-dim">Bu sayfa değerlendirme amaçlı kurgusal bir hizmettir; gerçek talep toplanmaz.</p>
+  <div class="site-footer-inner">
+    <p><span class="brand-mark" aria-hidden="true">$</span> <strong>opadm</strong> — küçük ekipler için sunucu bakımı.</p>
+    <p class="foot-dim">Sandbox Test Environment &middot; Değerlendirme amaçlı kurgusal hizmettir.</p>
+  </div>
 </footer>
 </body>
 </html>

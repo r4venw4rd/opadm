@@ -38,7 +38,7 @@ function paintSummary(sum) {
   $("ds-rate").textContent = String(s.error_rate_pct ?? "0.0");
 }
 
-// Bir kontrol satırı: ✓/✗ + ad + "ne işe yarar" + teknik detay.
+// Bir kontrol satırı: ✓/✗ + ad + "ne işe yarar" + teknik detay (Accordion).
 function checkItem(c) {
   const li = document.createElement("li");
   li.dataset.pass = c.pass === true ? "yes" : "no";
@@ -62,11 +62,24 @@ function checkItem(c) {
   why.className = "demo-why";
   why.textContent = String(c.why || "");
 
-  const detail = document.createElement("p");
-  detail.className = "demo-detail";
-  detail.textContent = String(c.detail || "");
+  body.append(title, why);
 
-  body.append(title, why, detail);
+  const detailText = String(c.detail || "").trim();
+  if (detailText) {
+    const details = document.createElement("details");
+    details.className = "demo-detail-accordion";
+
+    const summary = document.createElement("summary");
+    summary.textContent = "Teknik Kanıt (detail)";
+
+    const detailBlock = document.createElement("pre");
+    detailBlock.className = "demo-detail";
+    detailBlock.textContent = detailText;
+
+    details.append(summary, detailBlock);
+    body.appendChild(details);
+  }
+
   li.append(mark, body);
   return li;
 }
