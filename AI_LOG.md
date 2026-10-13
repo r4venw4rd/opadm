@@ -126,7 +126,11 @@ burada açık yazılmıştır.
 
 ## Dürüstlük notu
 
-- Kodun tamamı bu oturumda AI tarafından üretildi; kullanıcı kod yazmadı/değiştirmedi.
+- Kodun tamama yakını bu oturumda AI tarafından üretildi. İstisna (dürüstlük):
+  kullanıcı başka bir uçta frontend'e tema düğmesi (`initTheme`, localStorage)
+  + form hata helper'ları (`showFormErrors`/`hideFormErrors`) ekledi; bu satırlar
+  `d557d5e` commit'ine `git add -A` ile karıştı. Kalan 2 satırlık app.js diff'i
+  commitlenmedi (sahibinin bitmemiş işi olabilir).
 - Kullanıcı kararları yalnızca yukarıda listelenenlerdir; söylenmemiş düşünce
   kullanıcıya atfedilmedi.
 - Test çıktıları gerçektir, uydurma sonuç yok. Canlı Supabase/Vercel doğrulaması
