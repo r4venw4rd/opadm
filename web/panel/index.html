@@ -57,12 +57,24 @@
   </section>
 
   <section id="demo" aria-labelledby="demo-heading">
-    <h2 id="demo-heading">Canlı demo: özelliklerimiz</h2>
-    <p class="sec-sub">Aşağıdaki testler bu sunucuda gerçekten koşar; DB'ye yazılmaz, kota yakılmaz.</p>
+    <h2 id="demo-heading">Canlı demo</h2>
+    <p class="sec-sub">Düğmeye basınca aşağıdaki kontroller bu sunucuda gerçekten çalışır; kalıcı kayıt bırakmaz, kota yakmaz.</p>
     <div class="status-panel">
-      <ul id="demo-list" class="demo-list">
-        <li>Henüz çalıştırılmadı — düğmeye basın.</li>
-      </ul>
+      <h3 class="demo-sub" id="demo-summary-heading">Servis metrikleri</h3>
+      <dl class="status-grid" id="demo-summary" aria-labelledby="demo-summary-heading">
+        <div><dt>Çalışma süresi</dt><dd id="ds-uptime">—</dd></div>
+        <div><dt>Toplam kayıt</dt><dd id="ds-total">—</dd></div>
+        <div><dt>Son kayıt <span class="unit">UTC</span></dt><dd id="ds-last">—</dd></div>
+        <div><dt>Yazma gecikmesi <span class="unit">ms</span></dt><dd id="ds-write">—</dd></div>
+        <div><dt>DB gecikmesi <span class="unit">µs</span></dt><dd id="ds-db">—</dd></div>
+        <div><dt>Bu sunumda başarılı</dt><dd id="ds-ok">—</dd></div>
+        <div><dt>Başarısız</dt><dd id="ds-fail">—</dd></div>
+        <div><dt>Hata oranı <span class="unit">%</span></dt><dd id="ds-rate">—</dd></div>
+      </dl>
+      <h3 class="demo-sub" id="demo-checks-heading">Özellik kontrolü</h3>
+      <div id="demo-list" class="demo-list" aria-labelledby="demo-checks-heading">
+        <p class="demo-empty">Henüz çalıştırılmadı — düğmeye basın.</p>
+      </div>
       <div class="status-actions">
         <button class="btn btn-primary" type="button" id="demo-btn">Özellikleri dene</button>
         <p id="demo-msg" role="status" aria-live="polite"></p>

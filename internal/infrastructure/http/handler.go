@@ -175,7 +175,7 @@ func (a *App) Create(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	_, fieldErrs, err := a.Service.Submit(domain.Request{
+	id, fieldErrs, err := a.Service.Submit(domain.Request{
 		Name: in.Name, Email: in.Email, Service: in.Service, Message: in.Message,
 	}, hashIP(ip))
 	if len(fieldErrs) > 0 {
@@ -191,7 +191,9 @@ func (a *App) Create(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"ok": true})
+	// id, kalıcı kaydın kanıtıdır: INSERT commit edip id döndüğü için
+	// başarı mesajı ancak gerçekten kayıt oluştuğunda gösterilir.
+	writeJSON(w, http.StatusCreated, map[string]any{"ok": true, "id": id})
 	a.pushLive() // canlı izleyiciler sayacı hemen görür
 }
 
@@ -290,11 +292,13 @@ func (a *App) Demo(w http.ResponseWriter, r *http.Request) {
 	out := make([]map[string]any, 0, len(res.Checks))
 	for _, c := range res.Checks {
 		out = append(out, map[string]any{
-			"id": c.ID, "name": c.Name, "pass": c.Pass, "detail": c.Detail,
+			"id": c.ID, "name": c.Name, "why": c.Why, "group": c.Group,
+			"pass": c.Pass, "detail": c.Detail,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok": true, "run_id": res.RunID, "took_ms": res.TookMs, "checks": out,
+		"ok": true, "run_id": res.RunID, "took_ms": res.TookMs,
+		"summary": res.Summary, "checks": out,
 	})
 }
 

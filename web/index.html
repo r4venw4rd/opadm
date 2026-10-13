@@ -121,6 +121,17 @@ uptime  disk  svc  <span class="t-green">OK OK OK</span>
     </ol>
   </section>
 
+  <section id="akis" aria-labelledby="flow-heading">
+    <h2 id="flow-heading">Gönderdiğinizde ne olur?</h2>
+    <p class="sec-sub">Kurgusal bir demo, ama form gerçekten çalışır. Sıra şöyle:</p>
+    <ol class="flow" aria-label="Talep işleme adımları">
+      <li><strong>Tarayıcı</strong><span>Alanlar önce doğrulanır; geçersizse sunucuya hiç gitmez.</span></li>
+      <li><strong>Sunucu</strong><span>Aynı kuralları yeniden uygular; geçersizse 400 döner, kayıt olmaz.</span></li>
+      <li><strong>Veritabanı</strong><span>Geçerli talep PostgreSQL'e kalıcı yazılır, kayıt numarası döner.</span></li>
+      <li><strong>Sonuç</strong><span>Başarı yalnızca kayıt oluştuysa gösterilir; aksi halde açık hata.</span></li>
+    </ol>
+  </section>
+
   <section id="talep" aria-labelledby="form-heading">
     <div class="form-shell">
       <div class="form-intro">

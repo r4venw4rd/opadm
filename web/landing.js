@@ -108,7 +108,10 @@ document.addEventListener("DOMContentLoaded", () => {
       try { data = await res.json(); } catch { /* JSON dışı gövde: hata say */ }
       if (res.status === 201 && data.ok === true) {
         hideFormErrors();
-        status("Talebiniz alındı. Ortalama 2 iş günü içinde dönüş yaparız.", "ok");
+        // Kayıt no, sunucudaki kalıcı satırın kimliğidir; başarı yalnız
+        // sunucu satırı yazıp id döndürünce gösterilir.
+        const ref = typeof data.id === "number" ? " Kayıt no: #" + data.id + "." : "";
+        status("Talebiniz alındı ve kaydedildi." + ref + " Ortalama 2 iş günü içinde dönüş yaparız.", "ok");
         form.reset();
       } else if (res.status === 400 && data.errors) {
         fields.forEach((f) => setErr(f, (data.errors || {})[f] || ""));

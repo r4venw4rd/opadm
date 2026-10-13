@@ -1,3 +1,9 @@
 {
-  "outputDirectory": "web"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "outputDirectory": "web",
+  "rewrites": [
+    { "source": "/healthz", "destination": "/api/index" },
+    { "source": "/api/(.*)", "destination": "/api/index" }
+  ]
 }

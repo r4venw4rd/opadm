@@ -6,3 +6,7 @@ opadm
 .env
 .env.*
 !.env.example
+
+# Ajan/araç klasörleri teslime girmez (node_modules dahil)
+.opencode/
+.freebuff/

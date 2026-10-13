@@ -67,6 +67,18 @@ func (f *fakeStore) Count() (int, error) {
 
 func (f *fakeStore) Close() error { return nil }
 
+func (f *fakeStore) LastRequestAt() (time.Time, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fail {
+		return time.Time{}, false, errors.New("db down")
+	}
+	if len(f.rows) == 0 {
+		return time.Time{}, false, nil
+	}
+	return time.Now(), true, nil
+}
+
 func (f *fakeStore) DBInfo() (domain.DBIdentity, error) {
 	if f.fail {
 		return domain.DBIdentity{}, errors.New("db down")
@@ -206,6 +218,10 @@ func TestValidInsert(t *testing.T) {
 	var out map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out["ok"] != true {
 		t.Fatalf("201 yanıtında ok:true yok: %s", rec.Body.String())
+	}
+	// Yanıt, kalıcı satırın id'sini taşımalı (başarının kanıtı).
+	if id, ok := out["id"].(float64); !ok || id <= 0 {
+		t.Fatalf("201 yanıtında pozitif id yok: %s", rec.Body.String())
 	}
 	n, err := app.Service.Repo.Count()
 	if err != nil || n != 1 {
@@ -444,9 +460,17 @@ func TestDemo(t *testing.T) {
 		OK     bool   `json:"ok"`
 		RunID  string `json:"run_id"`
 		TookMs int64  `json:"took_ms"`
+		Sum    struct {
+			Uptime        string `json:"uptime"`
+			RequestsTotal int    `json:"requests_total"`
+			LastRequestAt string `json:"last_request_at"`
+			ErrorRatePct  string `json:"error_rate_pct"`
+		} `json:"summary"`
 		Checks []struct {
 			ID     string `json:"id"`
 			Name   string `json:"name"`
+			Why    string `json:"why"`
+			Group  string `json:"group"`
 			Pass   bool   `json:"pass"`
 			Detail string `json:"detail"`
 		} `json:"checks"`
@@ -457,17 +481,24 @@ func TestDemo(t *testing.T) {
 	if out.RunID == "" {
 		t.Fatal("run_id boş olmamalı (kanıtsız koşu)")
 	}
-	if len(out.Checks) != 10 {
-		t.Fatalf("%d check, 10 bekleniyordu", len(out.Checks))
+	// İş değeri özeti dolu gelmeli (canlı servis metrikleri).
+	if out.Sum.Uptime == "" || out.Sum.LastRequestAt == "" || out.Sum.ErrorRatePct == "" {
+		t.Fatalf("özet eksik: %+v", out.Sum)
+	}
+	if len(out.Checks) != 8 {
+		t.Fatalf("%d check, 8 bekleniyordu", len(out.Checks))
 	}
 	ids := map[string]bool{}
 	for _, c := range out.Checks {
 		if !c.Pass || c.Detail == "" {
 			t.Fatalf("check kalmış/boş: %+v", c)
 		}
+		if c.Name == "" || c.Why == "" || c.Group == "" {
+			t.Fatalf("check adı/açıklaması/grup eksik: %+v", c)
+		}
 		ids[c.ID] = true
 	}
-	for _, want := range []string{"validation", "csrf", "ratelimit", "database", "write-cycle", "schema", "bcrypt", "session", "version", "limiter-state"} {
+	for _, want := range []string{"validation", "write-cycle", "database", "csrf", "ratelimit", "bcrypt", "session", "version"} {
 		if !ids[want] {
 			t.Fatalf("%s check'i yok", want)
 		}
@@ -568,6 +599,49 @@ func TestAuthFlow(t *testing.T) {
 	app.Me(r2, req) // req hâlâ çerezli ama oturum düştü
 	if r2.Code != 401 {
 		t.Fatalf("çıkış sonrası me: kod = %d, istendi 401", r2.Code)
+	}
+}
+
+// TestRoutes, main.go ile api/index.go'nun paylaştığı rota haritasını kilitler.
+func TestRoutes(t *testing.T) {
+	app := newTestApp(t, 100)
+	mux := stdhttp.NewServeMux()
+	app.RegisterRoutes(mux)
+
+	call := func(method, path, body string) int {
+		t.Helper()
+		var r *stdhttp.Request
+		if body == "" {
+			r = httptest.NewRequest(method, path, nil)
+		} else {
+			r = httptest.NewRequest(method, path, strings.NewReader(body))
+			r.Header.Set("Content-Type", "application/json")
+		}
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, r)
+		return rec.Code
+	}
+
+	if code := call("POST", "/api/requests", validBody()); code != 201 {
+		t.Fatalf("POST /api/requests → %d, 201 bekleniyordu", code)
+	}
+	if code := call("GET", "/healthz", ""); code != 200 {
+		t.Fatalf("GET /healthz → %d, 200 bekleniyordu", code)
+	}
+	if code := call("GET", "/api/status", ""); code != 401 {
+		t.Fatalf("GET /api/status (girişsiz) → %d, 401 bekleniyordu", code)
+	}
+	if code := call("GET", "/api/demo", ""); code != 401 {
+		t.Fatalf("GET /api/demo (girişsiz) → %d, 401 bekleniyordu", code)
+	}
+	if code := call("POST", "/api/auth/signup", `{"email":"r@e.co","password":"gizli-parola-1"}`); code != 201 {
+		t.Fatalf("POST /api/auth/signup → %d, 201 bekleniyordu", code)
+	}
+	if code := call("POST", "/api/auth/login", `{"email":"r@e.co","password":"gizli-parola-1"}`); code != 200 {
+		t.Fatalf("POST /api/auth/login → %d, 200 bekleniyordu", code)
+	}
+	if code := call("GET", "/api/yok", ""); code != 404 {
+		t.Fatalf("bilinmeyen rota → %d, 404 bekleniyordu", code)
 	}
 }
 

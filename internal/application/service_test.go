@@ -50,6 +50,16 @@ func (f *fakeRepo) Count() (int, error) {
 }
 func (f *fakeRepo) Close() error { return nil }
 
+func (f *fakeRepo) LastRequestAt() (time.Time, bool, error) {
+	if f.fail {
+		return time.Time{}, false, errors.New("db down")
+	}
+	if len(f.rows) == 0 {
+		return time.Time{}, false, nil
+	}
+	return time.Now(), true, nil
+}
+
 func (f *fakeRepo) DBInfo() (domain.DBIdentity, error) {
 	if f.fail {
 		return domain.DBIdentity{}, errors.New("db down")
@@ -173,15 +183,21 @@ func TestRunDemo(t *testing.T) {
 	if lim.Size() != sizeBefore {
 		t.Fatalf("demo iz bıraktı: önce %d, sonra %d", sizeBefore, lim.Size())
 	}
-	if len(checks.Checks) != 10 {
-		t.Fatalf("%d check, 10 bekleniyordu", len(checks.Checks))
+	if len(checks.Checks) != 8 {
+		t.Fatalf("%d check, 8 bekleniyordu", len(checks.Checks))
 	}
 	if checks.RunID == "" {
 		t.Fatal("run_id boş olmamalı")
 	}
+	if checks.Summary.Uptime == "" || checks.Summary.LastRequestAt == "" {
+		t.Fatalf("özet eksik: %+v", checks.Summary)
+	}
 	for _, c := range checks.Checks {
 		if !c.Pass {
 			t.Fatalf("%s kalmış: %s", c.Name, c.Detail)
+		}
+		if c.Why == "" || c.Group == "" {
+			t.Fatalf("%s: açıklama/grup eksik", c.Name)
 		}
 	}
 }

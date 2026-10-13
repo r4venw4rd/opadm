@@ -62,6 +62,19 @@ func (s *Store) Count() (int, error) {
 	return n, err
 }
 
+// LastRequestAt, en son kalıcı kaydın zamanıdır (yoksa ok=false, hata yok).
+func (s *Store) LastRequestAt() (time.Time, bool, error) {
+	var t time.Time
+	err := s.db.QueryRow(`SELECT created_at FROM requests ORDER BY id DESC LIMIT 1`).Scan(&t)
+	if err == sql.ErrNoRows {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	return t, true, nil
+}
+
 func (s *Store) Close() error { return s.db.Close() }
 
 // CreateUser, üyelik açar. E-posta çakışırsa unique index hatası döner;

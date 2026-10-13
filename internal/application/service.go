@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -15,13 +16,17 @@ import (
 )
 
 // Service, kullanım senaryolarının (use case) tek giriş noktasıdır.
-// HTTP ve DB detayları dışarıda; burada yalnız iş kuralları + orkestrasyon.
+// HTTP ve DB detayları dışında; burada yalnız iş kuralları + orkestrasyon.
 type Service struct {
 	Repo    domain.Repository
 	Auth    domain.AuthStore
 	Started time.Time
 	// Version, canlıdaki sürüm (APP_VERSION; "hangi kod koşuyor" kanıtı).
 	Version string
+	// submitted/failed, süreç ömrü boyunca talep sonuçlarını sayar.
+	// /api/demo bunları "canlı servis metriği" olarak gösterir.
+	submitted atomic.Int64
+	failed    atomic.Int64
 }
 
 func New(repo domain.Repository, auth domain.AuthStore, started time.Time, version string) *Service {
@@ -40,8 +45,10 @@ func (s *Service) Submit(r domain.Request, ipHash string) (id int64, fieldErrs m
 	}
 	id, err = s.Repo.Insert(r.Name, r.Email, r.Service, r.Message, ipHash)
 	if err != nil {
+		s.failed.Add(1)
 		return 0, nil, err
 	}
+	s.submitted.Add(1)
 	return id, nil, nil
 }
 
@@ -83,10 +90,13 @@ func (s *Service) Snapshot() (Snapshot, error) {
 	}, nil
 }
 
-// Check, demoluk tek özelliktir: adı, geçti/kaldı ve canlı detayı.
+// Check, demodaki tek kontroldür. Name + Why müşteriye, Detail mühendise
+// konuşur; Group iki katmanı ayırır (Ürün / Mühendislik).
 type Check struct {
 	ID     string
 	Name   string
+	Why    string
+	Group  string
 	Pass   bool
 	Detail string
 }
@@ -100,12 +110,30 @@ type Limiter interface {
 	Quota() (max int, window string)
 }
 
+// ServiceMetrics, ürünün iş değerini gösteren canlı sayılardır.
+type ServiceMetrics struct {
+	Uptime            string `json:"uptime"`
+	RequestsTotal     int    `json:"requests_total"`
+	LastRequestAt     string `json:"last_request_at"`
+	WriteLatencyMs    int64  `json:"write_latency_ms"`
+	DBLatencyUs       int64  `json:"db_latency_us"`
+	SubmissionsOK     int64  `json:"submissions_ok"`
+	SubmissionsFailed int64  `json:"submissions_failed"`
+	ErrorRatePct      string `json:"error_rate_pct"`
+}
+
 // DemoResult, bir demo koşusunun kimlikli zarfıdır.
 type DemoResult struct {
-	RunID  string
-	TookMs int64
-	Checks []Check
+	RunID   string
+	TookMs  int64
+	Summary ServiceMetrics
+	Checks  []Check
 }
+
+const (
+	groupProduct = "Ürün"
+	groupEng     = "Mühendislik"
+)
 
 func newRunID() string {
 	var b [4]byte
@@ -115,17 +143,19 @@ func newRunID() string {
 	return hex.EncodeToString(b[:])
 }
 
-// RunDemo, özellikleri canlı sistemde dener. Her check ölçülebilir iz bırakır:
-// süre, DB kimliği, sayaç deltaları. Kayıt turu gerçek satırla yapılır ama
-// sonunda silinir; hız kanıtı probe kotası yakıp temizler.
-// Sahte "her şey yeşil" yok: her check gerçekten koşar.
+// RunDemo, özellikleri canlı sistemde dener. Her kontrol ölçülebilir iz
+// bırakır: süre, DB kimliği, sayaç deltaları. Kayıt turu gerçek satırla
+// yapılır ama sonunda silinir; hız kanıtı probe kotası yakıp temizler.
+// Sahte "her şey yeşil" yok: her kontrol gerçekten koşar.
 func (s *Service) RunDemo(lim Limiter, userEmail string) DemoResult {
 	start := time.Now()
 	runID := newRunID()
+	var lastUs int64
 	timed := func(f func() (bool, string)) (bool, string) {
 		t0 := time.Now()
 		pass, detail := f()
-		return pass, detail + " (" + strconv.FormatInt(time.Since(t0).Microseconds(), 10) + "µs)"
+		lastUs = time.Since(t0).Microseconds()
+		return pass, detail + " (" + strconv.FormatInt(lastUs, 10) + "µs)"
 	}
 
 	validationPass, validationDetail := timed(func() (bool, string) {
@@ -140,7 +170,7 @@ func (s *Service) RunDemo(lim Limiter, userEmail string) DemoResult {
 		if good.Email != "demo@ornek.com" {
 			return false, "normalizasyon bozuk"
 		}
-		return true, "bozuk örnek 4 hata, sağlam örnek 0 hata, e-posta küçük harf"
+		return true, "bozuk örnek 4 hata, sağlam örnek 0 hata, e-posta küçük harfe çevrildi"
 	})
 
 	csrfPass, csrfDetail := timed(func() (bool, string) {
@@ -150,7 +180,7 @@ func (s *Service) RunDemo(lim Limiter, userEmail string) DemoResult {
 		if !domain.AllowedOrigin("ornek.site", "https://ornek.site", "") {
 			return false, "öz Origin kalmış"
 		}
-		return true, "yabancı reddedildi, öz geçti"
+		return true, "yabancı kaynak reddedildi, kendi kaynağımız geçti"
 	})
 
 	limitPass, limitDetail := timed(func() (bool, string) {
@@ -166,22 +196,30 @@ func (s *Service) RunDemo(lim Limiter, userEmail string) DemoResult {
 		if before-after != 1 {
 			return false, "delta tutmadı"
 		}
-		return true, "önce " + strconv.Itoa(before) + ", 1 yakıldı, sonra " + strconv.Itoa(after) + " / " + window + " pencere (probe temizlendi)"
+		return true, "kota " + strconv.Itoa(before) + ", 1 yakıldı, " + strconv.Itoa(after) + " kaldı / " + window + " pencere (probe temizlendi)"
 	})
 
+	var dbPingUs int64
 	dbPass, dbDetail := timed(func() (bool, string) {
 		info, err := s.Repo.DBInfo()
 		if err != nil {
 			return false, "kimlik okunamadı"
 		}
+		dbPingUs = info.PingUs
 		ver := info.Version
 		if i := strings.Index(ver, " on "); i > 0 {
 			ver = ver[:i]
 		}
-		size, err := s.Repo.DBSizeBytes()
+		// Şema kontrolü bu kontrole katıldı (sadeleştirme).
+		missing, err := s.Repo.SchemaTables()
 		if err != nil {
-			return false, "boyut okunamadı"
+			return false, "şema okunamadı"
 		}
+		schema := "şema tam (requests/users/sessions)"
+		if len(missing) > 0 {
+			schema = "eksik tablo: " + strings.Join(missing, ", ")
+		}
+		size, _ := s.Repo.DBSizeBytes()
 		open, inUse, idle := s.Repo.PoolStats()
 		clockSkew := "?"
 		if dbNow, err := time.Parse("2006-01-02 15:04:05.999999999-07", info.Now); err == nil {
@@ -191,7 +229,7 @@ func (s *Service) RunDemo(lim Limiter, userEmail string) DemoResult {
 			}
 			clockSkew = strconv.FormatInt(d.Milliseconds(), 10) + "ms"
 		}
-		return true, ver + " · " + info.Database + " · " + info.Now +
+		return len(missing) == 0, ver + " · " + info.Database + " · " + schema +
 			" · ping " + strconv.FormatInt(info.PingUs, 10) + "µs" +
 			" · boyut " + humanBytes(size) +
 			" · havuz " + strconv.Itoa(open) + "/" + strconv.Itoa(inUse) + "/" + strconv.Itoa(idle) + " (açık/kullanımda/boşta)" +
@@ -209,19 +247,9 @@ func (s *Service) RunDemo(lim Limiter, userEmail string) DemoResult {
 		if n0 != n1 {
 			return false, "silme başarısız: kayıt kaldı"
 		}
-		return true, "satır #" + strconv.FormatInt(id, 10) + " yazıldı → okundu → silindi (sayaç " + strconv.Itoa(n0) + "→" + strconv.Itoa(n1) + ")"
+		return true, "satır #" + strconv.FormatInt(id, 10) + " yazıldı → geri okundu → silindi (sayaç " + strconv.Itoa(n0) + "→" + strconv.Itoa(n1) + ")"
 	})
-
-	schemaPass, schemaDetail := timed(func() (bool, string) {
-		missing, err := s.Repo.SchemaTables()
-		if err != nil {
-			return false, "şema okunamadı"
-		}
-		if len(missing) > 0 {
-			return false, "eksik tablo: " + strings.Join(missing, ", ")
-		}
-		return true, "requests/users/sessions mevcut"
-	})
+	writeUs := lastUs
 
 	bcryptPass, bcryptDetail := timed(func() (bool, string) {
 		// Gerçek tur: üret + doğrula. ~100ms sürer; sahte karşılaştırma anında biterdi.
@@ -235,32 +263,71 @@ func (s *Service) RunDemo(lim Limiter, userEmail string) DemoResult {
 		if err := bcrypt.CompareHashAndPassword(hash, []byte("yanlis")); err == nil {
 			return false, "yanlış parola geçti"
 		}
-		return true, "üret + doğru geçti + yanlış kastedildi"
+		return true, "parola özetlendi, doğru parola geçti, yanlış parola reddedildi"
 	})
 
 	sessionPass, sessionDetail := timed(func() (bool, string) {
 		if userEmail == "" {
 			return false, "oturum e-postası yok"
 		}
-		return true, userEmail + " olarak girişli (çerez HttpOnly)"
+		return true, userEmail + " olarak girişli (oturum çerezi HttpOnly)"
 	})
 
 	return DemoResult{
-		RunID:  runID,
-		TookMs: time.Since(start).Milliseconds(),
+		RunID:   runID,
+		TookMs:  time.Since(start).Milliseconds(),
+		Summary: s.metrics(writeUs, dbPingUs),
 		Checks: []Check{
-			{ID: "validation", Name: "Doğrulama", Pass: validationPass, Detail: validationDetail},
-			{ID: "csrf", Name: "CSRF koruması", Pass: csrfPass, Detail: csrfDetail},
-			{ID: "ratelimit", Name: "Hız limiti", Pass: limitPass, Detail: limitDetail},
-			{ID: "database", Name: "Veritabanı", Pass: dbPass, Detail: dbDetail},
-			{ID: "write-cycle", Name: "Kayıt turu", Pass: cyclePass, Detail: cycleDetail},
-			{ID: "schema", Name: "Şema", Pass: schemaPass, Detail: schemaDetail},
-			{ID: "bcrypt", Name: "Parola koruması", Pass: bcryptPass, Detail: bcryptDetail},
-			{ID: "session", Name: "Oturum", Pass: sessionPass, Detail: sessionDetail},
-			{ID: "version", Name: "Sürüm", Pass: true, Detail: "canlıdaki kod: " + s.Version},
-			{ID: "limiter-state", Name: "Limiter durumu", Pass: true, Detail: strconv.Itoa(lim.Size()) + " izlenen IP (demo probeleri temizlenir)"},
+			{ID: "validation", Group: groupProduct, Name: "Form doğrulaması", Why: "Bozuk veya eksik girdi kaydedilmez.", Pass: validationPass, Detail: validationDetail},
+			{ID: "write-cycle", Group: groupProduct, Name: "Kalıcı kayıt", Why: "Talep gerçekten yazılır ve geri okunur; başarı mesajı buna bağlıdır.", Pass: cyclePass, Detail: cycleDetail},
+			{ID: "database", Group: groupEng, Name: "Veritabanı", Why: "Canlı PostgreSQL'e bağlıyız; kayıtlar burada kalıcı durur.", Pass: dbPass, Detail: dbDetail},
+			{ID: "csrf", Group: groupEng, Name: "Yabancı kaynak koruması", Why: "Başka siteler formu sizin adınıza gönderemez.", Pass: csrfPass, Detail: csrfDetail},
+			{ID: "ratelimit", Group: groupEng, Name: "Hız limiti", Why: "Aynı IP dakikada en fazla 10 istek gönderebilir.", Pass: limitPass, Detail: limitDetail},
+			{ID: "bcrypt", Group: groupEng, Name: "Parola güvenliği", Why: "Parolalar geri döndürülemez şekilde saklanır.", Pass: bcryptPass, Detail: bcryptDetail},
+			{ID: "session", Group: groupEng, Name: "Oturum güvenliği", Why: "Oturum çerezi JavaScript'ten gizlidir (HttpOnly).", Pass: sessionPass, Detail: sessionDetail},
+			{ID: "version", Group: groupEng, Name: "Canlı sürüm", Why: "Hangi kodun çalıştığı izlenebilir.", Pass: true, Detail: "canlıdaki kod: " + s.Version},
 		},
 	}
+}
+
+// metrics, iş değeri sayılarını toplar. writeUs: bu koşudaki gerçek yazma
+// süresi, dbPingUs: DB ping süresi. Kişisel veri içermez.
+func (s *Service) metrics(writeUs, dbPingUs int64) ServiceMetrics {
+	total, err := s.Repo.Count()
+	if err != nil {
+		total = 0
+	}
+	lastStr := "—"
+	if t, ok, err := s.Repo.LastRequestAt(); err == nil && ok {
+		lastStr = t.UTC().Format(time.RFC3339)
+	}
+	okN, failN := s.submitted.Load(), s.failed.Load()
+	rate := "0.0"
+	if attempts := okN + failN; attempts > 0 {
+		rate = strconv.FormatFloat(float64(failN)*100/float64(attempts), 'f', 1, 64)
+	}
+	return ServiceMetrics{
+		Uptime:            humanDuration(time.Since(s.Started)),
+		RequestsTotal:     total,
+		LastRequestAt:     lastStr,
+		WriteLatencyMs:    writeUs / 1000, // µs → ms
+		DBLatencyUs:       dbPingUs,
+		SubmissionsOK:     okN,
+		SubmissionsFailed: failN,
+		ErrorRatePct:      rate,
+	}
+}
+
+// humanDuration, süreyi okunabilir kısa metne çevirir.
+func humanDuration(d time.Duration) string {
+	sec := int64(d.Seconds())
+	if sec < 60 {
+		return strconv.FormatInt(sec, 10) + " sn"
+	}
+	if sec < 3600 {
+		return strconv.FormatInt(sec/60, 10) + " dk " + strconv.FormatInt(sec%60, 10) + " sn"
+	}
+	return strconv.FormatInt(sec/3600, 10) + " sa " + strconv.FormatInt((sec%3600)/60, 10) + " dk"
 }
 
 // humanBytes, baytı okunabilir yapar (demo detayı için).

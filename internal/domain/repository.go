@@ -1,11 +1,15 @@
 package domain
 
+import "time"
+
 // Repository, taleplerin kalıcılık sözleşmesidir. Gerçek: Postgres,
 // testler: fake. Domain ne SQL ne HTTP bilir.
 type Repository interface {
 	Insert(name, email, service, message, ipHash string) (int64, error)
 	Ping() error
 	Count() (int, error)
+	// LastRequestAt, en son kalıcı kaydın zamanıdır (kayıt yoksa ok=false).
+	LastRequestAt() (t time.Time, ok bool, err error)
 	Close() error
 	// DBInfo, canlı kanıt için DB'nin kendi ağzından kimlik verir.
 	DBInfo() (DBIdentity, error)

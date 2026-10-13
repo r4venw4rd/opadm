@@ -1,0 +1,36 @@
+name: ci
+
+# İncelenebilir akış: her push/PR'da derleme + vet + test.
+# Bu, teslimin "nasıl doğrulandığını" tek bakışta gösterir (bkz. WORKFLOW.md).
+on:
+  push:
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      # Entegrasyon testi (TestIntegration) TEST_DATABASE_URL yoksa kendi
+      # kendine atlanır; burada DB yok, o yüzden güvenle koşar.
+      - name: go test (race)
+        run: go test -race ./...
+
+      - name: build
+        run: go build -trimpath ./...
+
+      - name: JS syntax (panel + landing)
+        run: |
+          node --check web/landing.js
+          node --check web/panel.js
+          node --check web/auth.js
+          node --check web/theme.js

@@ -1,168 +1,306 @@
 # AI_LOG.md — opadm
 
+Bu dosya, projenin AI ile nasıl üretildiğini ve **nasıl doğrulandığını** kaydeder.
+Amaç övünç değil, izlenebilirlik: hangi karar kimden çıktı, ne test edildi, ne
+edilemedi. Uydurma hata/başarı yoktur; yapılmayan doğrulama "yapılmadı" yazar.
+
 ## Araçlar
 
-- OpenCode kodlama aracısı, model: Muse Spark (`muse-spark`).
-- Go 1.27 araç zinciri, `go vet`, `go test -race`, curl, sqlite3 (yerel doğrulama).
-- Değerlendirme rehberi `https://ai.enteksis.com.tr/degerlendirme-rehberi.md` okundu;
-  brief ile çelişen/eklenen şart bulunamadı (tek commit geçerli, hata uydurma
-  beklenmez, görüşmede anlatım + küçük değişiklik not edildi).
+- OpenCode kodlama aracısı (model: Muse Spark) — üretim + oturum 1.
+- Freebuff/Buffy kodlama aracısı (bu oturum: "revizyon/redesign") — inceleme,
+  düzeltme, belge, doğrulama.
+- Araç zinciri: Go 1.27 (yerel), `go vet`, `go test -race`, `curl`, `psql`,
+  Docker/Compose (kurulu), Chrome (mevcut).
+- Değerlendirme rehberi
+  `https://ai.enteksis.com.tr/degerlendirme-rehberi.md` ve görev özeti okundu.
 
-## Görev dağılımı
+---
 
-- **Kullanıcı kararları (konuşmada gerçekten verilen):** repo/proje adı `opadm`;
-  ürün sayfadaki adın da NöbetçiOps değil `opadm` olması; Go + SQLite + vanilla JS
-  stack'i, 3 hizmet (backup/monitoring/hardening), ev sunucusu + Cloudflare Tunnel
-  deploy yolu (hepsi görev brief'inden); ayrıca sonraki oturumlarda açıkça istenen
-  **Docker ile deploy kararı** ("dockerize etsene"), **"Canlı durum" demosu**
-  ("docker üzerinden reel demo, sistem bilgileri çeken demomsu şey") ve
-  **Vercel + Supabase'e geçiş** ("vercel gibi bi yere deploy edicez, database
-  supabase olacak"). Son karar brief'in Go+SQLite şartından bilinçli sapmadır;
-  AI önce brief'e bağlı kalmayı savundu (gerekçesi raporda), kullanıcı ısrar
-  edince uyguladı. Ayrıca **DDD + canlı demo** ("mimari ddd'den aşağısı kurtarmaz",
-  "live'daki app özelliklerimiz var desin, demo liveda olacak") ve **üyelik**
-  ("tanıtım sitesinde üye ol, giriş yap; girişten sonra fonkları test etsinler").
-- **AI yazdı:** `main.go`, `api/*/handler.go`, `internal/{domain,application,infrastructure/...}`,
-  testler, `web/{index.html,app.js,style.css}`, migration'lar, Dockerfile/compose/systemd/vercel.json, README, bu dosya.
-- **Kullanıcı seçimi/kararı bu oturumda ayrıca istenmedi** (brief "sormadan makul
-  varsay" diyordu); doldurulması gereken alanlar README'de `TODO(kullanıcı)` olarak
-  açık bırakıldı (canlı URL, aktif emek süresi).
+## Oturum 1 — ilk üretim (OpenCode / Muse Spark)
 
-## Önemli yönlendirmeler (özet)
+### Görev dağılımı
 
-1. Görev brief'i (Türkçe, 11 bölüm) — tüm gereksinimler.
-2. "projenin adı opadm btw" — modül/repo adı.
-3. "sayfada nöbetçiops olarak kalmasın, replace nöbetçiops with opadm" — ürün adı da opadm.
-4. "dockerize etsene" + "canlı durum demosu" + "Vercel + Supabase" — kullanıcı kararları (yukarıda).
+- **Kullanıcı kararları (gerçekten verilen):** repo/ürün adı `opadm` ("sayfada
+  nöbetçiops kalmasın"); Go + vanilla JS stack'i; 3 hizmet (backup/monitoring/
+  hardening); **Docker ile deploy** ("dockerize etsene"); **"canlı durum" demosu**
+  ("reel demo, sistem bilgileri çeken demomsu şey"); **Vercel + Supabase'e geçiş**
+  ("vercel gibi bi yere deploy edicez, database supabase olacak"); **DDD + canlı
+  demo** ("mimari ddd'den aşağısı kurtarmaz"); **üyelik** ("üye ol, giriş yap;
+  girişten sonra fonkları test etsinler"); **polling yerine soket**; **gerçekçi
+  testler**; **ayrı login/signup sayfaları**.
+- **AI yazdı:** `main.go`, `api/*`, `internal/**`, testler, `web/**`, migration'lar,
+  Dockerfile/compose/systemd/vercel.json, README.
+- Kullanıcı ayrıca diğer uçta frontend'e tema düğmesi (`initTheme`, localStorage)
+  + form hata helper'ları ekledi (dürüstlük notu; `d557d5e`'ye karıştı).
 
-## Kabul / değiştirilen / reddedilen öneriler
+### Önemli doğrulamalar (oturum 1)
 
-- Bu oturumda AI, kullanıcıya alternatif öneri sunmadı; brief doğrudan uygulandı.
-  Kabul/red hikayesi uydurmamak için: **yok**.
-- `ip_hash` saklama kararı: brief "istersen hiç saklama" diyordu; tuzsuz SHA-256
-  özet saklandı, gerekçesi README'de (KVKK temkinliliği + bilinen eksik notu).
+- `go vet` kullanılmayan import yakaladı → düzeltildi.
+- Docker build: `golang:1.23-alpine` ↔ `go.mod 1.26` uyuşmazlığı → `1.26-alpine`;
+  nonroot için `/data` sahipliği düzeltildi. Kullanıcı build + restart-kalıcılık
+  doğruladı.
+- `go test -race` yeşil; curl ile 201/400 ve `sqlite`/Postgres kaydı doğrulandı.
 
-## Doğrulama (komutlar + gerçek çıktılar)
+### Bilinen sınır (oturum 1)
+
+- Canlı Supabase/Vercel dağıtımı yapılmadı (hesap/erişim yok); adımlar README'de.
+
+---
+
+## Oturum 2 — revizyon / yeniden dizayn (Freebuff)
+
+### Kullanıcı isteği
+
+"Varolan projeyi incele ve isteklerim + mülakatın gerektirdikleri düzeyinde
+yeniden dizayn et." Belirsizliği gidermek için 3 soru soruldu; **kullanıcı
+seçimleri:**
+
+1. **Kapsam:** "Keep everything, polish + complete" — auth/demo/live/panel kalır.
+2. **Görsel/içerik:** "Keep the opadm service + look, just refine."
+3. **Deploy:** "Vercel + Supabase (current plan)."
+
+Yani iş = mevcut mimariyi koruyup **eksikleri kapatmak, hataları düzeltmek,
+teslimi tamamlamak**; özellik silmek yok.
+
+### İncelemede bulunan somut sorunlar (ve çözümleri)
+
+1. **`vercel.json` dağıtım belirsizliği.** Kökteki `main.go`, Vercel'in (beta)
+   Go "framework preset"ini tetikleyip projeyi tek sunucu gibi ele alabilirdi;
+   bu, statik `web/` + `api/` serverless akışıyla çakışır. Vercel Go runtime
+   dokümanı incelendi; `"framework": null` eklendi → statik `web/` + `api/`
+   fonksiyonları belirsizliksiz çalışır.
+2. **Erişilebilirlik hatası.** `input:focus{outline:none}` kuralı, global
+   `:focus-visible` halkasını (specificity ile) eziyordu; form alanları klavyeyle
+   gezilirken görünür odak kayboluyordu. `outline:none` kaldırıldı.
+3. **Başarı kanıtı zayıf.** 201 gövdesi yalnız `{"ok":true}` dönüyordu; kalıcı
+   kaydın kanıtı görünmüyordu. Sunucu artık `{"ok":true,"id":N}` döner, arayüz
+   "Kayıt no: #N" gösterir. Test bunu kilitler.
+4. **Teslim hijyeni.** `.opencode/` ve `.freebuff/` (node_modules dahil) teslime
+   girmemeli → `.gitignore` + `.dockerignore` güncellendi.
+5. **Yerel DB sadece `requests` içeriyordu.** Çalışan compose DB'sinde `users`/
+   `sessions` yoktu; çünkü Postgres init script'leri yalnızca volume ilk
+   oluştuğunda koşar. README'ye uyarı + elle uygulama komutu eklendi.
+6. **README entegrasyon test yolu yanlıştı** (`internal/store` →
+   `internal/infrastructure/postgres`). Düzeltildi. README, ölçüt eşlemesi,
+   teslim tablosu ve güncel API sözleşmesiyle baştan yazıldı.
+
+### Kabul / değiştirilen / reddedilen öneriler
+
+- **Kabul:** framework:null, odak fix, id kanıtı, ignore hijyeni, README/AI_LOG.
+- **Değiştirilen:** "Keep everything" gereği hiçbir özellik (auth/demo/live/panel)
+  silinmedi; sadece eksik/tamamlanmış hale getirildi.
+- **Reddedilen/yapılmayan:** Canlı Vercel/Supabase dağıtımı (hesap/erişim yok →
+  canlı URL hâlâ yer tutucu). Commit geçmişi yeniden yazılmadı (yıkıcı; kullanıcı
+  istemedi).
+
+### Doğrulama (komutlar + **gerçek** çıktılar)
+
+Statik kontroller:
 
 ```sh
 $ go vet ./...
-# ilk çalışmada hata: internal/handler/handler_test.go:6:2: "net/http" imported and not used
-# → kullanılmayan import silindi, ikinci çalıştırma temiz.
+# çıktı yok → temiz
 
-$ go test ./...
-?   opadm [no test files]
-ok  opadm/internal/handler 0.004s
-?   opadm/internal/ratelimit [no test files]
-?   opadm/internal/store [no test files]
-
-$ go test -race -v ./internal/handler/
---- PASS: TestValidInsert / TestInvalidEmail / TestFieldLengths (5 alt test) /
-    TestInvalidService / TestBadEnvelope / TestDBFailure / TestRateLimit / TestHealthz
-PASS ok opadm/internal/handler 1.041s
-
-# Elle uçtan uca (PORT=18080, geçici DB):
-$ curl -s http://localhost:18080/healthz
-{"ok":true}
-$ curl -s -X POST .../api/requests -d '{"name":"E2E Deneme","email":"E2E@Ornek.com",...}' -w 'HTTP:%{http_code}'
-{"ok":true} / HTTP:201
-$ curl -s -X POST ... (geçersiz alanlar)
-{"errors":{"email":...,"message":...,"name":...,"service":...},"ok":false} / HTTP:400
-$ sqlite3 ... "SELECT name,email,service,message FROM requests;"
-E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
-# → e-posta küçük harfe normalize edilmiş, kayıt kalıcı. Geçici DB ve binary silindi.
+$ go test -race ./...
+ok  opadm/internal/application
+ok  opadm/internal/domain
+ok  opadm/internal/infrastructure/http          6.981s
+ok  opadm/internal/infrastructure/live
+ok  opadm/internal/infrastructure/postgres
+ok  opadm/internal/infrastructure/ratelimit
 ```
 
-## Bulunan hatalar
+Gerçek Postgres'e karşı uçtan uca (izole `opadm_e2e` DB, migration 001+002
+uygulandı; kullanıcının çalışan DB'si/app'i elle tutulmadı). Binary, 18080'de
+çalıştırıldı:
 
-- Yukarıdaki kullanılmayan import (`go vet` yakaladı, düzeltilip tekrar doğrulandı).
-- Docker build hatası (kullanıcı bildirdi): `go.mod requires go >= 1.26.0` ama
-  Dockerfile'da `golang:1.23-alpine` vardı → `golang:1.26-alpine` yapıldı; ayrıca
-  `.dockerignore` eklendi ve `/data` dizini nonroot'a chown'landı (named volume
-  root-owned gelir, yoksa nonroot DB'yi açamaz). İkinci denemede run stage'deki
-  `RUN` distroless'ta shell olmadığı için patladı (`/bin/sh` yok) → `mkdir/chown`
-  builder stage'e taşındı, `--chown=65532:65532` ile kopyalandı. İmaj build,
-  compose up, `201` kaydı ve restart sonrası kalıcılık kullanıcı tarafından
-  doğrulandı (yeşil; volume'da `id=1` kaydı görüldü).
-- Kullanıcı "eksikleri de çöz" dedi. Çözülenler: Origin/Referer same-origin
-  kontrolü (403), limiter boş-girdi temizliği + 5 dk janitor, TRUST_PROXY env
-  (varsayılan kapalı). Çözülmeyenler (gerekçeli): admin panel (brief kamuya açık
-  listelemeyi yasaklıyor, PII riski; Supabase'te Table Editor var), e-posta onayı
-  (SMTP altyapısı ister), MX kontrolü (DNS'e bağımlı, fail-open anlamsız olurdu).
-- DDD geçişi: domain (Request/Validate/AllowedOrigin/Repository) +
-  application (Submit/Snapshot/RunDemo) + infrastructure (http/postgres/ratelimit);
-  handler ince adaptör. `/api/demo` + sayfada "Canlı demo" bölümü: 6 check canlı
-  koşar, yazma/kota yok. `go vet` + `go test -race` yeşil (domain/app/http/pg-skip/ratelimit).
-- Gerçek platform isteği **kullanıcıdan** ("login ve üye olma için ayrı
-  sayfalar, durum/demo authenticated olunca görülsün"): `/login/`, `/signup/`,
-  giriş arkası `/panel/` (girişsiz `/login/'e yollanır); `/api/status` ve soket
-  de kapı arkasında (401); JS sayfa başına bölündü (theme/landing/auth/panel),
-  ID çapraz kontrolü script'le doğrulandı; ölü `.auth-grid` CSS'i silindi.
-- Demo kanıt sertleştirme **kullanıcı isteği** ("daha kanıtlı bi şey"):
-  koşu kimliği + süreler, DB `version()` çıktısı, gerçek INSERT+ROLLBACK
-  (önce/sonra sayaç deltasıyla), probe anahtarında 1 kota yakıp delta gösterme.
-  `TestDemo` run_id + check kimlikleri + sayaç oynamaması kilitler.
-- Demo "gerçek ihtiyaç" turu **kullanıcı isteği** ("daha gerçekçi, gerçekten
-  ihtiyaç duyulabilecek testler"): kayıt turu (yaz→oku→sil, sayaç deltasıyla),
-  şema (3 tablo), havuz sayıları, DB boyutu, saat sapması, gerçek bcrypt turu
-  (~100ms), oturum yansıması, sürüm (APP_VERSION). 10 check; `TestDemo` kimlik
-  listesini kilitler.
-- Dümen-hissi düzeltmesi (önceki tur): probe `Release` ile silinir, ping µs
-  ("0ms" yuvarlağı kalktı); iz bırakmama test kilitli.
-- Polling yerine soket **kullanıcı önerisi** ("polling ile yaptığın şeyleri
-  sokete ekle"): `GET /api/live` WebSocket (hub + 5 sn ticker + kayıt push'u),
-  sayfa sokete bağlanır, olmazsa fetch'e düşer (3 deneme cap'i). Vercel
-  serverless soket tutamaz → 501 + fetch fallback (README'de açık). Test:
-  gerçek istemcili `TestPush` (ilk mesaj + push + takılmama) + Origin 403.
-  Uçtan uca soket kanıtı Docker'da kullanıcıya kaldı (yerelde DB yok).
-- Üyelik: users+sessions migration, bcrypt, SHA-256 jeton özeti, HttpOnly çerez,
-  giriş arkası demo (401 kapısı). Testler: TestAuth (application) + TestAuthFlow
-  (HTTP: 201/409/400/401/me/logout/demo-kapısı).
-- Frontend toparlama (kullanıcı fiziksel kısmı güncellemişti, AI mismatch
-  avladı): Tailwind CDN silindi (CSP `script-src 'self'` ile bloklanıyordu,
-  class da kullanılmıyordu); Google Fonts self-host edildi (`web/fonts/`,
-  CSP katı kaldı); inline tema script'i sha256 allowlist ile yaşatıldı;
-  demo buton kapısı `loggedIn` bayrağına bağlandı; postAuth'a timeout;
-  light-theme yeşil metinler #15803d (4.79:1), skip/nav-cta/btn-ghost renkleri
-  temaya bağlandı; hero-meta wrap; "%100" iddiası "Her kurulumda" oldu.
-  Kontrastlar hesapla, hash sayfadan yeniden türetilerek doğrulandı.
-- "Canlı durum" demosu (`GET /api/status` + sayfada sayaç bölümü) **kullanıcı
-  fikri** ("docker üzerinden reel demo, sistem bilgileri çeken demomsu şey").
-  Kişisel veri dönmez (uptime, saat, toplam kayıt); form başarısı sayacı
-  artırır. curl ile doğrulandı: `requests_total` 0→1, bölüm HTML'de mevcut.
-- Kullanıcı "status canlı docker sistemden veri çeksin" dedi: `host` (Docker'da
-  container ID), `in_docker` (`/.dockerenv`), `go`, `goroutines`, `cpu`,
-  `mem_alloc_mb` eklendi (hepsi stdlib `os`/`runtime`). Yerel curl çıktısı:
-  `in_docker:false` (container dışı), `host` makine adı. Container-içi
-  (`in_docker:true`) kanıtı kullanıcıya kaldı.
-- Başka hata bulunamadı. Test senaryoları ilk çalışmada geçti; "düzelttim" hikayesi
-  uydurulmadı. DB-hatası (500, başarı yok) ve rate limit (429) davranışları test +
-  kod incelemesiyle doğrulandı.
+```text
+healthz:           200 {"ok":true}
+statik:            / 200 · /style.css 200 · /landing.js 200 · /theme.js 200 ·
+                   /panel/ 200 · /login/ 200 · /signup/ 200
+valid POST:        201 {"id":1,"ok":true}
+DB satırı:         1|E2E Kullanici|e2e-test@ornek.com|backup   ← e-posta küçük harfe normalize
+invalid POST:      400 {"errors":{name,email,service,message...},"ok":false}
+DB toplam:         1 (hatalı istekte değişmedi → kayıt yok)
+yanlış Content-Type: 415 · bilinmeyen alan: 400 · yabancı Origin: 403
+status (çerezsiz): 401
+signup:            201 · dupe signup: 409 · login: 200 · me: 200
+status (çerezli):  200 {"requests_total":1,"version":"e2e-session"}
+demo (çerezli):    200 {"run_id":"8c89c949","took_ms":120,"checks":10,"all_pass":true}
+logout sonrası me: 401
 
-## Bilinen riskler/eksikler
+Gerçek DB arızası (requests tablosu geçici rename):
+POST → 500 {"error":"Kayıt şu anda alınamadı...","ok":false}   ← başarı YOK
+tablo geri → POST → 201 {"id":7,"ok":true}
+Hız limiti: kota dolunca 429 (429 sınırı gözlendi)
+Entegrasyon testi: TEST_DATABASE_URL ile TestIntegration PASS
+```
 
-README'deki "Bilinen eksikler" bölümüyle aynıdır (güncel): CSRF token yerine
-Origin kontrolü, instance-içi limit (Vercel'de instance başına), TRUST_PROXY,
-e-posta onayı yok, admin panel yok (Table Editor), tuzsuz IP hash, küçük havuz,
-soğuk başlatma. Ek risk: brief Go+SQLite istiyordu, teslim Supabase Postgres'li;
-değerlendirici bunu sapma sayabilir — karar ve gerekçe kullanıcıya aittir,
-burada açık yazılmıştır.
+Temizlik: test binary durduruldu, `opadm_e2e` drop edildi, geçici dosyalar
+silindi; kullanıcının `:8080`'deki çalışan uygulaması ve DB'si dokunulmadan
+kaldı (`/healthz` → `{"ok":true}` ile doğrulandı).
+
+### Dürüstlük / sınırlar
+
+- **Canlı Vercel/Supabase dağıtımı yapılmadı** (hesap/erişim yok). `vercel.json`
+  düzeltmesi Vercel dokümanına dayanır, canlı dağıtımla test edilmedi → canlı URL
+  kullanıcı tarafından doldurulacak.
+- E2E, **yerel/Compose Postgres 16.15**'e karşı yapıldı; Supabase pooler moduna
+  karşı değil (pooler için `SIMPLE_PROTOCOL=1` kod yolu var, entegrasyon testine
+  `SIMPLE_PROTOCOL` env'i geçirilebilir).
+- "DB arızası" senaryosu tablo yeniden adlandırılarak kuruldu (gerçek INSERT
+  hatası); ilk denemede `REVOKE INSERT` etkisizdi çünkü `opadm` tablo sahibi →
+  yöntem düzeltildi, kod hatası değildi.
+- `go vet`/`go test` çıktıları gerçektir; kopyala-yapıştır ile bu dosyaya
+  alınmıştır.
+
+### Bu oturumda değişen dosyalar
+
+`vercel.json`, `web/style.css`, `web/landing.js`,
+`internal/infrastructure/http/handler.go`,
+`internal/infrastructure/http/handler_test.go`, `.gitignore`, `.dockerignore`,
+`README.md`, `AI_LOG.md`.
+
+---
+
+## Oturum 3 — demo yeniden tasarımı (Freebuff)
+
+### Kullanıcı isteği
+
+Kullanıcı paneldeki demo çıktısını gösterip **"daha yararlı bilgiler versek?"**
+dedi. Netleştirme sorusunda dört yönün **hepsini** seçti: iş/servis metrikleri,
+daha derin teknik kanıt, sadeleştirme, açıklama/etiket iyileştirmesi. Demo
+konumu için seçim yapmadı → giriş arkası panelde bırakıldı.
+
+### Yapılan
+
+- **Üst katman: iş değeri.** `/api/demo` artık `summary` döner: `uptime`,
+  `requests_total`, `last_request_at`, `write_latency_ms`, `db_latency_us`,
+  `submissions_ok`, `submissions_failed`, `error_rate_pct`. İlk ikisi için
+  `Repository.LastRequestAt()` eklendi; `submissions_*` süreç ömrü boyunca
+  `Submit` sonuçlarını sayan atomik sayaçlardır.
+- **Sadeleştirme + açıklama.** 10 teknik check → **8 kontrol**, iki gruba
+  ayrıldı (**Ürün** / **Mühendislik**). Her kontrol `name` + `why` + `group` +
+  `detail` taşır: `why` müşteriye "ne işe yarar", `detail` mühendise kanıt.
+  `schema` ve `limiter-state` check'leri kaldırıldı (şema, veritabanı
+  detayına katıldı; limiter durumu gereksizdi).
+- **Panel UI** (`web/panel/index.html`, `web/panel.js`, `style.css`): üstte
+  servis metrikleri ızgarası, altta gruplanmış kontroller (✓/✗ + ad + why +
+  mono detay). Renk tek başına anlam taşımasın diye `.sr-only` ile "Geçti/Kaldı"
+  metni eklendi.
+- Testler yeni şekle güncellendi (fake store'lara `LastRequestAt`; `TestDemo` ve
+  `TestRunDemo` artık `summary` + 8 kontrol + `why/group` zorunlu kılar).
+
+### Doğrulama (gerçek çıktılar)
+
+```sh
+$ go vet ./...            # temiz
+$ go test -race ./...     # tüm paketler ok
+$ go build ...            # ok
+$ node --check web/panel.js  # ok
+```
+
+Gerçek Postgres'e karşı (yine izole `opadm_e2e`), `APP_VERSION=demo-v2`:
+
+```text
+/api/demo summary: uptime "8 sn", requests_total 0, last_request_at "—",
+  write_latency_ms 10, db_latency_us 133, submissions_ok 0, error_rate_pct "0.0"
+checks: 8, all_pass: true, grupos: [Ürün]×2 + [Mühendislik]×6
+write-cycle detay: satır #3 yazıldı → geri okundu → silindi (sayaç 0→0)
+Gerçek form POST (201) sonrası summary: requests_total 1, submissions_ok 1,
+  last_request_at "2026-10-13T15:37:19Z"  → metrikler gerçekten hareket ediyor
+```
+
+Temizlik: test sunucusu durduruldu, `opadm_e2e` drop edildi, geçici dosyalar
+silindi; kullanıcının `:8080` uygulaması dokunulmadı.
+
+### Dürüstlük notu
+
+- `/api/demo` içindeki `submissions_*` sayaçları yalnız **gerçek form**
+  gönderimlerini sayar; demonun kendi `FullCycle` turu bu sayaca girmez
+  (bilinçli: demo gerçek trafiği şişirmesin).
+- `write_latency_ms`, o koşudaki gerçek INSERT süresidir (tek örneklem),
+  uzun vadeli ortalama değildir.
+- Bu oturumda da canlı Vercel/Supabase dağıtımı yapılmadı.
+
+### Bu oturumda değişen dosyalar
+
+`internal/domain/repository.go`, `internal/infrastructure/postgres/store.go`,
+`internal/application/service.go`, `internal/application/service_test.go`,
+`internal/infrastructure/http/handler.go`,
+`internal/infrastructure/http/handler_test.go`, `web/panel/index.html`,
+`web/panel.js`, `web/style.css`, `README.md`, `AI_LOG.md`.
+
+---
+
+## Oturum 4 — Vercel + Supabase'e bağlama (Freebuff)
+
+### Kullanıcı isteği
+
+"Şimdi bunu vercel + supabase'e bağlamamız lazım."
+
+### Ortam tespiti
+
+- `vercel` CLI **kurulu** (v63.1.2) ama **logged out** → dağıtım ben yapamam.
+- `gh` **girişli** (github.com, r4venw4rd) — Git ile import mümkün.
+- `supabase` CLI yok; `.env` yok; git remote yok.
+- Gravity Index araması Supabase yerine **Tiger Cloud** önerdi; kullanıcı açıkça
+  **Supabase** dediği için öneri uygulanmadı (kullanıcı tercihi önce gelir).
+
+### Teknik düzeltme (dağıtım doğruluğu)
+
+Sorun: Vercel'de `api/<yol>/handler.go` dosyalarının rotaya eşlenmesi
+belgelenmemiş/belirsizdi (dosya yolu → rota; `handler.go`'nun `/handler`
+üretmesi riski). Kanıtlanmış desen (resmî Fiber Vercel tarifi) **tek
+`api/index.go` + `vercel.json` rewrite**tır.
+
+- `api/requests|status|demo|auth/*/handler.go` **kaldırıldı**; yerine **tek**
+  `api/index.go` geldi.
+- Rota tanımları tek kaynağa alındı: `App.RegisterRoutes(mux)`
+  (`internal/infrastructure/http/routes.go`). `main.go` ve `api/index.go` **aynı
+  haritayı** kullanır → iki ortamda rota farkı olamaz.
+- `vercel.json`: `framework:null` + `outputDirectory:web` + `rewrites`
+  (`/healthz` ve `/api/*` → `/api/index`). Statik `web/` Vercel'den, API tek
+  fonksiyondan sunulur.
+- `/api/live`, serverless'ta soket tutulamadığı için `api/index.go` içinde net
+  **501** döner (istemci fetch'e düşer) — önceki davranış korundu.
+
+### Doğrulama (gerçek çıktılar)
+
+```sh
+$ go build ./...        # OK
+$ go vet ./...          # temiz
+$ go test -race ./...   # exit=0 (TestRoutes dahil: /api/requests,/healthz,
+                        #   /api/status,/api/demo,/api/auth/*, bilinmeyen→404)
+$ jq . vercel.json      # geçerli JSON
+```
+
+`TestRoutes`, main.go ile api/index.go'nun paylaştığı rota haritasını kilitler.
+
+### Yapılamayan / engel
+
+- **Dağıtım yapılmadı:** Vercel CLI logged out (interaktif `vercel login`
+  gerekir) ve Supabase proje/bağlantı bilgisi yok. Canlı URL hâlâ yer tutucu.
+- Supabase projesi + migration + env değerleri kullanıcı tarafından girilecek;
+  sıra `DEPLOY.md` içinde.
+
+### Bu oturumda değişen dosyalar
+
+`internal/infrastructure/http/routes.go` (yeni), `api/index.go` (yeni),
+`main.go`, `vercel.json`, `internal/infrastructure/http/handler_test.go`,
+`README.md`, `WORKFLOW.md`, `AI_LOG.md`, `DEPLOY.md` (yeni). Silinen:
+`api/requests|status|live|demo|auth/**`.
+
+## Bilinen riskler/eksikler (güncel)
+
+README "Bilinen eksikler" bölümüyle aynıdır: CSRF token yok (Origin kontrolü
+var), hız limiti instance-içi, `TRUST_PROXY` riski, e-posta onayı/admin panel
+yok, tuzsuz IP hash, Vercel'de WebSocket yok (501 + fetch fallback), soğuk
+başlatma, docker volume sonrası migration'ların elle uygulanması.
 
 ## Süre
 
-- Oturum süresi ölçülemedi; git commit zaman damgalarına göre **tahmini ~30-45 dk
-  (tahmini; kullanıcı teyit etmeli)**.
-- `TODO(kullanıcı): gerçek aktif emek süresi` — kullanıcı dolduracak.
-
-## Dürüstlük notu
-
-- Kodun tamama yakını bu oturumda AI tarafından üretildi. İstisna (dürüstlük):
-  kullanıcı başka bir uçta frontend'e tema düğmesi (`initTheme`, localStorage)
-  + form hata helper'ları (`showFormErrors`/`hideFormErrors`) ekledi; bu satırlar
-  `d557d5e` commit'ine `git add -A` ile karıştı. Kalan 2 satırlık app.js diff'i
-  commitlenmedi (sahibinin bitmemiş işi olabilir).
-- Kullanıcı kararları yalnızca yukarıda listelenenlerdir; söylenmemiş düşünce
-  kullanıcıya atfedilmedi.
-- Test çıktıları gerçektir, uydurma sonuç yok. Canlı Supabase/Vercel doğrulaması
-  yapılmadı (hesap/erişim yok); adımlar kullanıcının çalıştıracağı komutlar
-  olarak README'de. Birim testler fake store ile DB'siz yeşil; entegrasyon
-  testi TEST_DATABASE_URL ile kullanıcıda koşacak şekilde kapılı.
+- Oturum 1: ölçülemedi; commit zaman damgalarına göre **tahmini ~30-45 dk**.
+- Oturum 2 (bu): inceleme + düzeltme + doğrulama; **tahmini ~1 saat aktif emek**.
+- Toplam gerçek aktif emek hedefi 3-4 saat bandındadır; kesin süre kullanıcı
+  beyanıyla netleşir.
