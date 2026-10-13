@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"opadm/internal/domain"
+	"opadm/pkg/domain"
 )
 
 // Service, kullanım senaryolarının (use case) tek giriş noktasıdır.

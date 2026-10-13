@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"opadm/internal/domain"
+	"opadm/pkg/domain"
 )
 
 // SessionDays, "beni hatırla yok": oturum ömrü 7 gün.

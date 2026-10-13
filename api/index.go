@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"sync"
 
-	httphandler "opadm/internal/infrastructure/http"
+	httphandler "opadm/pkg/infrastructure/http"
 )
 
 // Vercel Go fonksiyonu: /api/* ve /healthz istekleri vercel.json'daki rewrite

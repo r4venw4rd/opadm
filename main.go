@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	httphandler "opadm/internal/infrastructure/http"
+	httphandler "opadm/pkg/infrastructure/http"
 )
 
 //go:embed web

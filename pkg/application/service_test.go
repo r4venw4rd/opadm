@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"opadm/internal/domain"
-	"opadm/internal/infrastructure/ratelimit"
+	"opadm/pkg/domain"
+	"opadm/pkg/infrastructure/ratelimit"
 )
 
 type fakeRepo struct {

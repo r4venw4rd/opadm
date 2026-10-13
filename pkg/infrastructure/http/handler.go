@@ -13,11 +13,11 @@ import (
 
 	"github.com/coder/websocket"
 
-	"opadm/internal/application"
-	"opadm/internal/domain"
-	"opadm/internal/infrastructure/live"
-	"opadm/internal/infrastructure/postgres"
-	"opadm/internal/infrastructure/ratelimit"
+	"opadm/pkg/application"
+	"opadm/pkg/domain"
+	"opadm/pkg/infrastructure/live"
+	"opadm/pkg/infrastructure/postgres"
+	"opadm/pkg/infrastructure/ratelimit"
 )
 
 const maxBodyBytes = 16 * 1024 // 16 KB: form için fazlasıyla yeter, şişkin body'yi keser

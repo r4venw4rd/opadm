@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"opadm/internal/domain"
+	"opadm/pkg/domain"
 )
 
 // Store, taleplerin Postgres (Supabase) kalıcılığıdır.

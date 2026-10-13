@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"opadm/internal/application"
-	"opadm/internal/domain"
-	"opadm/internal/infrastructure/ratelimit"
+	"opadm/pkg/application"
+	"opadm/pkg/domain"
+	"opadm/pkg/infrastructure/ratelimit"
 )
 
 // fakeStore, Repository + AuthStore'un bellek içi karşılığıdır. fail=true

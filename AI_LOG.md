@@ -102,12 +102,12 @@ $ go vet ./...
 # çıktı yok → temiz
 
 $ go test -race ./...
-ok  opadm/internal/application
-ok  opadm/internal/domain
-ok  opadm/internal/infrastructure/http          6.981s
-ok  opadm/internal/infrastructure/live
-ok  opadm/internal/infrastructure/postgres
-ok  opadm/internal/infrastructure/ratelimit
+ok  opadm/pkg/application
+ok  opadm/pkg/domain
+ok  opadm/pkg/infrastructure/http          6.981s
+ok  opadm/pkg/infrastructure/live
+ok  opadm/pkg/infrastructure/postgres
+ok  opadm/pkg/infrastructure/ratelimit
 ```
 
 Gerçek Postgres'e karşı uçtan uca (izole `opadm_e2e` DB, migration 001+002
