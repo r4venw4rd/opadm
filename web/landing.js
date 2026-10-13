@@ -108,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try { data = await res.json(); } catch { /* JSON dışı gövde: hata say */ }
       if (res.status === 201 && data.ok === true) {
         hideFormErrors();
-        status("Talebiniz alındı. Ortalama 2 iş günü içinde dönüş yaparız.", "ok");
+        status("Talebiniz alındı. Teşekkürler.", "ok");
         form.reset();
       } else if (res.status === 400 && data.errors) {
         fields.forEach((f) => setErr(f, (data.errors || {})[f] || ""));

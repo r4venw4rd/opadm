@@ -199,7 +199,6 @@ DB tarafında aynı kurallar CHECK constraint olarak da var (ikinci savunma).
 
 - Değerlendirme rehberi okundu. Mimari değişikliği kullanıcı kararıdır; brief'in
   Go+SQLite şartından sapma bilinçlidir ve burada + AI_LOG'da açık yazılmıştır.
-- "Ortalama 2 iş günü yanıt" somut, doğrulanamaz vaat içermeyen bir taahhüt olarak yazıldı.
 - Süre hedefi 3-4 saat aktif emek; gerçek süre AI_LOG'da tahmini işaretli.
 
 ## Kaynaklar
