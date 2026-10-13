@@ -16,7 +16,7 @@ kullanılır.
 
 | Alan | Durum |
 |------|-------|
-| Canlı URL | `<DAĞITIM SONRASI DOLDUR — adımlar: "Deploy" bölümü>` |
+| Canlı URL | `https://opadm.vercel.app` |
 | Kaynak kod | Bu repo; değerlendiricinin erişimi yeterli (herkese açık olması şart değil). |
 | Teslim commit | `git rev-parse HEAD` — dağıtılan sürümün tek kimliği. README/AI_LOG bu commit ile eşleşmelidir. |
 | Kurulum | Aşağıda "Yerel kurulum" ve "Test" tam komutlarıyla. |
@@ -33,14 +33,14 @@ Go (stdlib) + Postgres (pgx), çerçevesiz vanilla frontend. Katmanlı mimari
 ```
 main.go                              binary girişi: env, mux, timeout, middleware
 api/index.go                         Vercel fonksiyonu (tek giriş; rotalar main.go ile ortak)
-internal/domain/                     Request + Validate/Normalize + AllowedOrigin + Repository/AuthStore arayüzü
-internal/application/                Service: Submit / Snapshot / RunDemo / Signup / Login / Me
-internal/infrastructure/http/        adaptör: JSON/başlık/HTTP kodu, iş kuralı yok
-internal/infrastructure/live/        WebSocket hub: 5 sn ticker + kayıt push'u
-internal/infrastructure/postgres/    Repository gerçekleşimi (parametrik SQL)
-internal/infrastructure/ratelimit/   IP başına limit (10/dk) + janitor + Peek
-internal/**/**_test.go               katman + uç testleri (fake repo ile, DB'siz)
-internal/infrastructure/postgres/store_test.go  TEST_DATABASE_URL ile entegrasyon (yoksa skip)
+pkg/domain/                          Request + Validate/Normalize + AllowedOrigin + Repository/AuthStore arayüzü
+pkg/application/                     Service: Submit / Snapshot / RunDemo / Signup / Login / Me
+pkg/infrastructure/http/             adaptör: JSON/başlık/HTTP kodu, iş kuralı yok
+pkg/infrastructure/live/             WebSocket hub: 5 sn ticker + kayıt push'u
+pkg/infrastructure/postgres/         Repository gerçekleşimi (parametrik SQL)
+pkg/infrastructure/ratelimit/        IP başına limit (10/dk) + janitor + Peek
+pkg/**/**_test.go                    katman + uç testleri (fake repo ile, DB'siz)
+pkg/infrastructure/postgres/store_test.go  TEST_DATABASE_URL ile entegrasyon (yoksa skip)
 web/                                 sayfalar + sayfa JS'leri + self-hosted fontlar
   / → tanıtım + açık talep formu · /login/ + /signup/ → üyelik
   /panel/ → giriş arkası canlı durum + demo

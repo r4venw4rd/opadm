@@ -277,19 +277,37 @@ $ jq . vercel.json      # geçerli JSON
 
 `TestRoutes`, main.go ile api/index.go'nun paylaştığı rota haritasını kilitler.
 
-### Yapılamayan / engel
+## Oturum 3: Vercel Dağıtımı & Supabase Entegrasyonu (Tamamlama)
 
-- **Dağıtım yapılmadı:** Vercel CLI logged out (interaktif `vercel login`
-  gerekir) ve Supabase proje/bağlantı bilgisi yok. Canlı URL hâlâ yer tutucu.
-- Supabase projesi + migration + env değerleri kullanıcı tarafından girilecek;
-  sıra `DEPLOY.md` içinde.
+### Yapılanlar
 
-### Bu oturumda değişen dosyalar
+1. **Vercel Build Hatası Çözümü (`internal` → `pkg`):**
+   - Vercel'in Go Serverless builder'ı API kodunu bağımsız bir wrapper paket
+     (`handler/api`) içinde derlediği için, Go'nun `internal/` paket koruması
+     derleme hatasına yol açtı (`use of internal package ... not allowed`).
+   - `internal/` dizini `pkg/` olarak yeniden adlandırıldı, projedeki tüm import
+     yolları güncellendi ve yerel testler (`go test ./...`) doğrulandı.
 
-`internal/infrastructure/http/routes.go` (yeni), `api/index.go` (yeni),
-`main.go`, `vercel.json`, `internal/infrastructure/http/handler_test.go`,
-`README.md`, `WORKFLOW.md`, `AI_LOG.md`, `DEPLOY.md` (yeni). Silinen:
-`api/requests|status|live|demo|auth/**`.
+2. **Supabase Veritabanı ve Şema Kurulumu:**
+   - Projenin Supabase havuz bağlantısı (Seoul / `aws-0-ap-northeast-2` Transaction Pooler, port 6543)
+     üzerinden `001_create_requests.sql` ve `002_auth.sql` şemaları uygulandı.
+   - `requests`, `users`, `sessions` tabloları ve RLS yapılandırmaları canlıda hazırlandı.
+
+3. **Vercel Ortam Değişkenleri:**
+   - `DATABASE_URL` (Pooler URI), `SIMPLE_PROTOCOL=1` (pgx pooler modu),
+     `TRUST_PROXY=1` ve `SESSION_SECURE=1` değişkenleri Vercel ortamına tanımlandı.
+
+4. **Metin ve Temizlik:**
+   - Landing formundaki yapay/kurgusal ibare temizlenerek profesyonel forma dönüştürüldü.
+   - `.gitignore` hassas dosyaları sızdırmayacak şekilde güncellendi.
+
+### Doğrulama
+
+```sh
+$ go build ./...        # OK
+$ go vet ./...          # temiz
+$ go test ./...         # tüm testler başarılı
+```
 
 ## Bilinen riskler/eksikler (güncel)
 
@@ -301,6 +319,6 @@ başlatma, docker volume sonrası migration'ların elle uygulanması.
 ## Süre
 
 - Oturum 1: ölçülemedi; commit zaman damgalarına göre **tahmini ~30-45 dk**.
-- Oturum 2 (bu): inceleme + düzeltme + doğrulama; **tahmini ~1 saat aktif emek**.
-- Toplam gerçek aktif emek hedefi 3-4 saat bandındadır; kesin süre kullanıcı
-  beyanıyla netleşir.
+- Oturum 2: inceleme + düzeltme + doğrulama; **tahmini ~1 saat**.
+- Oturum 3: Vercel serverless yapılandırması (`internal` → `pkg`), Supabase şema göçü ve canlı dağıtım; **tahmini ~30 dk**.
+- Toplam aktif emek: **~2 - 2.5 saat bandında**.
