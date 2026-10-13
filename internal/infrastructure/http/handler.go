@@ -11,11 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coder/websocket"
-
 	"opadm/internal/application"
 	"opadm/internal/domain"
-	"opadm/internal/infrastructure/live"
 	"opadm/internal/infrastructure/postgres"
 	"opadm/internal/infrastructure/ratelimit"
 )
@@ -23,15 +20,6 @@ import (
 const maxBodyBytes = 16 * 1024 // 16 KB: form için fazlasıyla yeter, şişkin body'yi keser
 
 var errNoDatabaseURL = errors.New("DATABASE_URL yok")
-
-// appVersion, canlıdaki kodun kimliğidir (boşsa "dev").
-// Demo/sürüm kanıtı ve "hangi kod koşuyor" sorusu için.
-func appVersion() string {
-	if v := os.Getenv("APP_VERSION"); v != "" {
-		return v
-	}
-	return "dev"
-}
 
 // App, HTTP adaptörüdür: başlık/gövde/JSON ile uğraşır, iş kuralı bilmez.
 // Kurallar application.Service'te, doğrulama domain'dedir.
@@ -42,18 +30,10 @@ type App struct {
 	// Yalnızca başlıkları ezen bir proxy (Vercel, Cloudflare Tunnel) arkasında
 	// TRUST_PROXY=1 ile açılır (bkz. README).
 	TrustProxy bool
-	// SecureCookies=1 (Vercel/HTTPS) çereze Secure ekler; yerelde 0 kalır
-	// yoksa tarayıcı http:// üzerinde çerezi saklamaz.
-	SecureCookies bool
-	// LiveHub, /api/live izleyicilerine anlık görüntü iter.
-	LiveHub *live.Hub
 }
 
 func New(svc *application.Service, l *ratelimit.Limiter, trustProxy bool) *App {
-	hub := live.NewHub()
-	never := make(chan struct{}) // süreç ömrü: hub kapanmaz
-	go hub.Run(never)
-	return &App{Service: svc, Limiter: l, TrustProxy: trustProxy, LiveHub: hub}
+	return &App{Service: svc, Limiter: l, TrustProxy: trustProxy}
 }
 
 // NewFromEnv, main.go ve Vercel fonksiyonlarının ortak kurulumudur:
@@ -70,17 +50,8 @@ func NewFromEnv() (*App, error) {
 	limiter := ratelimit.New(10, time.Minute)
 	never := make(chan struct{}) // süreç ömrü: janitor kapanmaz
 	go limiter.StartJanitor(5*time.Minute, never)
-	go func() { // ölü oturum süpürme (saatte bir; hata sessiz geçilir)
-		t := time.NewTicker(time.Hour)
-		defer t.Stop()
-		for range t.C {
-			_ = st.DeleteExpiredSessions()
-		}
-	}()
-	svc := application.New(st, st, time.Now(), appVersion())
-	app := New(svc, limiter, os.Getenv("TRUST_PROXY") == "1")
-	app.SecureCookies = os.Getenv("SESSION_SECURE") == "1"
-	return app, nil
+	svc := application.New(st, time.Now())
+	return New(svc, limiter, os.Getenv("TRUST_PROXY") == "1"), nil
 }
 
 // requestInput, HTTP gövdesinin DTO'sudur; domain.Request'e çevrilir.
@@ -192,110 +163,6 @@ func (a *App) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"ok": true})
-	a.pushLive() // canlı izleyiciler sayacı hemen görür
-}
-
-// snapshotMap, status + live akışının ortak gövdesidir.
-func (a *App) snapshotMap() (map[string]any, error) {
-	snap, err := a.Service.Snapshot()
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{
-		"ok":             true,
-		"time":           snap.Time,
-		"uptime_s":       snap.UptimeS,
-		"requests_total": snap.Total,
-		"host":           snap.Host,
-		"in_docker":      snap.InDocker,
-		"go":             snap.Go,
-		"goroutines":     snap.Goroutines,
-		"cpu":            snap.CPU,
-		"mem_alloc_mb":   snap.MemAllocMB,
-		"version":        snap.Version,
-	}, nil
-}
-
-// pushLive, izleyicilere taze sayacı iter. Hub doluysa düşer;
-// kayıt yolunu asla bekletmez.
-func (a *App) pushLive() {
-	m, err := a.snapshotMap()
-	if err != nil {
-		return
-	}
-	b, err := json.Marshal(m)
-	if err != nil {
-		return
-	}
-	a.LiveHub.Push(b)
-}
-
-// Status, GET /api/status. Giriş ister (panel sayfası arkası);
-// kişisel veri içermez ama sistem bilgisi girişe özeldir.
-func (a *App) Status(w http.ResponseWriter, r *http.Request) {
-	if _, ok, _ := a.currentUser(r); !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{
-			"ok": false, "error": "Durum için giriş yapın.",
-		})
-		return
-	}
-	m, err := a.snapshotMap()
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false})
-		return
-	}
-	writeJSON(w, http.StatusOK, m)
-}
-
-// Live, GET /api/live. WebSocket: bağlan, ilk görüntüyü al, sonra 5 sn'de
-// bir + her kayıtta itilir. Uzun ömürlü süreçte çalışır (binary/Docker);
-// Vercel fonksiyonunda yaşamaz (bkz. README) — istemci fetch'e düşer.
-func (a *App) Live(w http.ResponseWriter, r *http.Request) {
-	if !domain.AllowedOrigin(r.Host, r.Header.Get("Origin"), "") {
-		http.Error(w, "Geçersiz istek kaynağı.", http.StatusForbidden)
-		return
-	}
-	if _, ok, _ := a.currentUser(r); !ok {
-		http.Error(w, "Durum için giriş yapın.", http.StatusUnauthorized)
-		return
-	}
-	conn, err := websocket.Accept(w, r, nil)
-	if err != nil {
-		return
-	}
-	a.LiveHub.Attach(r.Context(), conn, func() []byte {
-		m, err := a.snapshotMap()
-		if err != nil {
-			return nil
-		}
-		b, err := json.Marshal(m)
-		if err != nil {
-			return nil
-		}
-		return b
-	}, 5*time.Second)
-}
-
-// Demo, GET /api/demo. Giriş ister: işveren üye olup girer, özellikleri
-// canlı dener. Her check ölçülebilir kanıt taşır (süre, DB kimliği, deltalar).
-func (a *App) Demo(w http.ResponseWriter, r *http.Request) {
-	email, ok, _ := a.currentUser(r)
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{
-			"ok": false, "error": "Demo için giriş yapın.",
-		})
-		return
-	}
-	res := a.Service.RunDemo(a.Limiter, email)
-	out := make([]map[string]any, 0, len(res.Checks))
-	for _, c := range res.Checks {
-		out = append(out, map[string]any{
-			"id": c.ID, "name": c.Name, "pass": c.Pass, "detail": c.Detail,
-		})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok": true, "run_id": res.RunID, "took_ms": res.TookMs, "checks": out,
-	})
 }
 
 // Health, GET /healthz. DB'ye ping atar; DB kapalıysa 500 verir.

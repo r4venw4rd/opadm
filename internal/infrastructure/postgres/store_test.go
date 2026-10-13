@@ -8,7 +8,7 @@ import (
 // TestIntegration, gerçek Postgres'e karşı koşar. TEST_DATABASE_URL yoksa
 // atlanır; CI'da değil, Supabase'e karşı elle doğrulanır:
 //
-//	TEST_DATABASE_URL='postgres://...' SIMPLE_PROTOCOL=1 go test ./internal/store/ -run Integration -v
+//	TEST_DATABASE_URL='postgres://...' SIMPLE_PROTOCOL=1 go test ./internal/infrastructure/postgres/ -run Integration -v
 func TestIntegration(t *testing.T) {
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {

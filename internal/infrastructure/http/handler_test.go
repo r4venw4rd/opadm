@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	stdhttp "net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -12,27 +11,15 @@ import (
 	"time"
 
 	"opadm/internal/application"
-	"opadm/internal/domain"
 	"opadm/internal/infrastructure/ratelimit"
 )
 
-// fakeStore, Repository + AuthStore'un bellek içi karşılığıdır. fail=true
+// fakeStore, Repository'nin bellek içi karşılığıdır. fail=true
 // iken tüm çağrılar hata döner (DB arızası simülasyonu). `go test` DB'siz koşar.
 type fakeStore struct {
-	mu       sync.Mutex
-	rows     []fakeRow
-	fail     bool
-	users    map[string]string // email -> passwordHash
-	sessions map[string]string // tokenHash -> email
-}
-
-func (f *fakeStore) auth() {
-	if f.users == nil {
-		f.users = map[string]string{}
-	}
-	if f.sessions == nil {
-		f.sessions = map[string]string{}
-	}
+	mu   sync.Mutex
+	rows []fakeRow
+	fail bool
 }
 
 type fakeRow struct {
@@ -67,103 +54,6 @@ func (f *fakeStore) Count() (int, error) {
 
 func (f *fakeStore) Close() error { return nil }
 
-func (f *fakeStore) DBInfo() (domain.DBIdentity, error) {
-	if f.fail {
-		return domain.DBIdentity{}, errors.New("db down")
-	}
-	return domain.DBIdentity{Version: "fake-postgres 0 (test)", Database: "fake", Now: "2026-01-01T00:00:00Z"}, nil
-}
-
-func (f *fakeStore) FullCycle() (int64, int, int, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.fail {
-		return 0, 0, 0, errors.New("db down")
-	}
-	// Tur benzetimi: yazıldı, okundu, silindi; satır eklenmez.
-	return int64(len(f.rows) + 1), len(f.rows), len(f.rows), nil
-}
-
-func (f *fakeStore) SchemaTables() ([]string, error) {
-	if f.fail {
-		return nil, errors.New("db down")
-	}
-	return nil, nil
-}
-
-func (f *fakeStore) DBSizeBytes() (int64, error) {
-	if f.fail {
-		return 0, errors.New("db down")
-	}
-	return 8192, nil
-}
-
-func (f *fakeStore) PoolStats() (int, int, int) { return 1, 0, 1 }
-
-func (f *fakeStore) CreateUser(email, hash string) (int64, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.fail {
-		return 0, errors.New("db down")
-	}
-	f.auth()
-	if _, ok := f.users[email]; ok {
-		return 0, errors.New("kayıtlı")
-	}
-	f.users[email] = hash
-	return int64(len(f.users)), nil
-}
-
-func (f *fakeStore) FindUserByEmail(email string) (int64, string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.fail {
-		return 0, "", errors.New("db down")
-	}
-	f.auth()
-	if h, ok := f.users[email]; ok {
-		return 1, h, nil
-	}
-	return 0, "", domain.ErrNotFound
-}
-
-func (f *fakeStore) CreateSession(_ int64, tokenHash string, _ time.Time) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.fail {
-		return errors.New("db down")
-	}
-	f.auth()
-	// Testte tek kullanıcı varsayımı yeterli: e-postayı geri yaz.
-	for e := range f.users {
-		f.sessions[tokenHash] = e
-		break
-	}
-	return nil
-}
-
-func (f *fakeStore) FindSessionUser(tokenHash string) (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.fail {
-		return "", errors.New("db down")
-	}
-	f.auth()
-	if e, ok := f.sessions[tokenHash]; ok {
-		return e, nil
-	}
-	return "", domain.ErrNotFound
-}
-
-func (f *fakeStore) DeleteSession(tokenHash string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	delete(f.sessions, tokenHash)
-	return nil
-}
-
-func (f *fakeStore) DeleteExpiredSessions() error { return nil }
-
 func (f *fakeStore) last() fakeRow {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -178,7 +68,7 @@ func newTestApp(t *testing.T, max int) *App {
 func newTestAppTrust(t *testing.T, max int, trustProxy bool) *App {
 	t.Helper()
 	f := &fakeStore{}
-	svc := application.New(f, f, time.Now(), "test")
+	svc := application.New(f, time.Now())
 	return New(svc, ratelimit.New(max, time.Minute), trustProxy)
 }
 
@@ -379,205 +269,3 @@ func TestTrustProxyDefaultOff(t *testing.T) {
 	}
 }
 
-func TestStatus(t *testing.T) {
-	app := newTestApp(t, 100)
-	get := func(cookie string) (int, map[string]any) {
-		req := httptest.NewRequest("GET", "/api/status", nil)
-		if cookie != "" {
-			req.AddCookie(&stdhttp.Cookie{Name: sessionCookie, Value: cookie})
-		}
-		rec := httptest.NewRecorder()
-		app.Status(rec, req)
-		var out map[string]any
-		_ = json.Unmarshal(rec.Body.Bytes(), &out)
-		return rec.Code, out
-	}
-	// Girişsiz 401.
-	if code, _ := get(""); code != 401 {
-		t.Fatalf("girişsiz status: kod = %d, istendi 401", code)
-	}
-	if rec, _ := doAuth(t, app, "/api/auth/signup", `{"email":"s@e.co","password":"gizli-parola-1"}`, ""); rec.Code != 201 {
-		t.Fatalf("signup: %d", rec.Code)
-	}
-	_, ck := doAuth(t, app, "/api/auth/login", `{"email":"s@e.co","password":"gizli-parola-1"}`, "")
-	if ck == "" {
-		t.Fatal("login çerez vermedi")
-	}
-	code, out := get(ck)
-	if code != 200 || out["ok"] != true || out["requests_total"] != float64(0) {
-		t.Fatalf("boş status bekleniyordu: %d %v", code, out)
-	}
-	for _, k := range []string{"uptime_s", "time", "host", "in_docker", "go", "goroutines", "cpu", "mem_alloc_mb"} {
-		if _, ok := out[k]; !ok {
-			t.Fatalf("%s alanı yok: %v", k, out)
-		}
-	}
-	if h, _ := out["host"].(string); h == "" {
-		t.Fatalf("host boş olmamalı: %v", out)
-	}
-	if rec := postJSON(t, app, validBody(), "application/json"); rec.Code != 201 {
-		t.Fatalf("kayıt 201 bekleniyordu: %d", rec.Code)
-	}
-	if code, out := get(ck); code != 200 || out["requests_total"] != float64(1) {
-		t.Fatalf("kayıt sonrası total=1 bekleniyordu: %d %v", code, out)
-	}
-}
-
-func TestDemo(t *testing.T) {
-	app := newTestApp(t, 100)
-	// Demo giriş ister: önce üye ol + giriş yap.
-	if rec, _ := doAuth(t, app, "/api/auth/signup", `{"email":"d@e.co","password":"gizli-parola-1"}`, ""); rec.Code != 201 {
-		t.Fatalf("signup: %d", rec.Code)
-	}
-	_, ck := doAuth(t, app, "/api/auth/login", `{"email":"d@e.co","password":"gizli-parola-1"}`, "")
-	if ck == "" {
-		t.Fatal("login çerez vermedi")
-	}
-	req := httptest.NewRequest("GET", "/api/demo", nil)
-	req.AddCookie(&stdhttp.Cookie{Name: sessionCookie, Value: ck})
-	rec := httptest.NewRecorder()
-	app.Demo(rec, req)
-	if rec.Code != 200 {
-		t.Fatalf("kod = %d, istendi 200", rec.Code)
-	}
-	var out struct {
-		OK     bool   `json:"ok"`
-		RunID  string `json:"run_id"`
-		TookMs int64  `json:"took_ms"`
-		Checks []struct {
-			ID     string `json:"id"`
-			Name   string `json:"name"`
-			Pass   bool   `json:"pass"`
-			Detail string `json:"detail"`
-		} `json:"checks"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || !out.OK {
-		t.Fatalf("demo yanıtı bozuk: %s", rec.Body.String())
-	}
-	if out.RunID == "" {
-		t.Fatal("run_id boş olmamalı (kanıtsız koşu)")
-	}
-	if len(out.Checks) != 10 {
-		t.Fatalf("%d check, 10 bekleniyordu", len(out.Checks))
-	}
-	ids := map[string]bool{}
-	for _, c := range out.Checks {
-		if !c.Pass || c.Detail == "" {
-			t.Fatalf("check kalmış/boş: %+v", c)
-		}
-		ids[c.ID] = true
-	}
-	for _, want := range []string{"validation", "csrf", "ratelimit", "database", "write-cycle", "schema", "bcrypt", "session", "version", "limiter-state"} {
-		if !ids[want] {
-			t.Fatalf("%s check'i yok", want)
-		}
-	}
-	// Demo kalıcı kayıt yazmamalı (yazma kanıtı geri alınır).
-	if n, _ := app.Service.Repo.Count(); n != 0 {
-		t.Fatalf("demo kayıt bırakmış, n=%d", n)
-	}
-}
-
-func doAuth(t *testing.T, app *App, path, body, cookie string) (*httptest.ResponseRecorder, string) {
-	t.Helper()
-	req := httptest.NewRequest("POST", path, strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	if cookie != "" {
-		req.AddCookie(&stdhttp.Cookie{Name: sessionCookie, Value: cookie})
-	}
-	rec := httptest.NewRecorder()
-	switch path {
-	case "/api/auth/signup":
-		app.Signup(rec, req)
-	case "/api/auth/login":
-		app.Login(rec, req)
-	case "/api/auth/logout":
-		app.Logout(rec, req)
-	default:
-		t.Fatalf("bilinmeyen path: %s", path)
-	}
-	setCookie := ""
-	for _, c := range rec.Result().Cookies() {
-		if c.Name == sessionCookie {
-			setCookie = c.Value
-		}
-	}
-	return rec, setCookie
-}
-
-func TestAuthFlow(t *testing.T) {
-	app := newTestApp(t, 100)
-	good := `{"email":"Uye@Ornek.com","password":"gizli-parola-1"}`
-
-	// Bozuk girdi -> 400.
-	if rec, _ := doAuth(t, app, "/api/auth/signup", `{"email":"x","password":"k"}`, ""); rec.Code != 400 {
-		t.Fatalf("bozuk signup: kod = %d, istendi 400", rec.Code)
-	}
-	// Üyelik -> 201.
-	if rec, _ := doAuth(t, app, "/api/auth/signup", good, ""); rec.Code != 201 {
-		t.Fatalf("signup: kod = %d, istendi 201 (%s)", rec.Code, rec.Body.String())
-	}
-	// Aynı e-posta -> 409.
-	if rec, _ := doAuth(t, app, "/api/auth/signup", good, ""); rec.Code != 409 {
-		t.Fatalf("çifte signup: kod = %d, istendi 409", rec.Code)
-	}
-	// Yanlış parola -> 401, çerez yok.
-	if rec, ck := doAuth(t, app, "/api/auth/login", `{"email":"uye@ornek.com","password":"yanlis"}`, ""); rec.Code != 401 || ck != "" {
-		t.Fatalf("yanlış login: kod = %d ck = %q", rec.Code, ck)
-	}
-	// Doğru giriş -> 200 + çerez.
-	rec, ck := doAuth(t, app, "/api/auth/login", good, "")
-	if rec.Code != 200 || ck == "" {
-		t.Fatalf("login: kod = %d ck boş mu: %v", rec.Code, ck == "")
-	}
-
-	// Me: çerezsiz 401, çerezli 200 + normalize e-posta.
-	req := httptest.NewRequest("GET", "/api/auth/me", nil)
-	r2 := httptest.NewRecorder()
-	app.Me(r2, req)
-	if r2.Code != 401 {
-		t.Fatalf("çerezsiz me: kod = %d, istendi 401", r2.Code)
-	}
-	req.AddCookie(&stdhttp.Cookie{Name: sessionCookie, Value: ck})
-	r2 = httptest.NewRecorder()
-	app.Me(r2, req)
-	if r2.Code != 200 || !strings.Contains(r2.Body.String(), "uye@ornek.com") {
-		t.Fatalf("me: %d %s", r2.Code, r2.Body.String())
-	}
-
-	// Demo: girişsiz 401.
-	dreq := httptest.NewRequest("GET", "/api/demo", nil)
-	drec := httptest.NewRecorder()
-	app.Demo(drec, dreq)
-	if drec.Code != 401 {
-		t.Fatalf("girişsiz demo: kod = %d, istendi 401", drec.Code)
-	}
-	// Demo: girişli 200.
-	dreq.AddCookie(&stdhttp.Cookie{Name: sessionCookie, Value: ck})
-	drec = httptest.NewRecorder()
-	app.Demo(drec, dreq)
-	if drec.Code != 200 {
-		t.Fatalf("girişli demo: kod = %d, istendi 200 (%s)", drec.Code, drec.Body.String())
-	}
-
-	// Çıkış -> me artık 401.
-	if rec, _ := doAuth(t, app, "/api/auth/logout", `{}`, ck); rec.Code != 200 {
-		t.Fatalf("logout: kod = %d", rec.Code)
-	}
-	r2 = httptest.NewRecorder()
-	app.Me(r2, req) // req hâlâ çerezli ama oturum düştü
-	if r2.Code != 401 {
-		t.Fatalf("çıkış sonrası me: kod = %d, istendi 401", r2.Code)
-	}
-}
-
-func TestLiveOriginGate(t *testing.T) {
-	app := newTestApp(t, 100)
-	req := httptest.NewRequest("GET", "/api/live", nil)
-	req.Header.Set("Origin", "https://kotusu.ornek")
-	rec := httptest.NewRecorder()
-	app.Live(rec, req)
-	if rec.Code != 403 {
-		t.Fatalf("yabancı Origin: kod = %d, istendi 403", rec.Code)
-	}
-}
