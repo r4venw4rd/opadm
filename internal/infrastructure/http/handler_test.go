@@ -1,4 +1,4 @@
-package handler
+package http
 
 import (
 	"bytes"
@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"opadm/internal/ratelimit"
+	"opadm/internal/application"
+	"opadm/internal/infrastructure/ratelimit"
 )
 
 // fakeStore, Store arayüzünün bellek içi karşılığıdır. fail=true iken
@@ -66,7 +67,8 @@ func newTestApp(t *testing.T, max int) *App {
 
 func newTestAppTrust(t *testing.T, max int, trustProxy bool) *App {
 	t.Helper()
-	return New(&fakeStore{}, ratelimit.New(max, time.Minute), trustProxy, time.Now())
+	svc := application.New(&fakeStore{}, time.Now())
+	return New(svc, ratelimit.New(max, time.Minute), trustProxy)
 }
 
 func postJSON(t *testing.T, app *App, body string, ctype string) *httptest.ResponseRecorder {
@@ -94,11 +96,11 @@ func TestValidInsert(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out["ok"] != true {
 		t.Fatalf("201 yanıtında ok:true yok: %s", rec.Body.String())
 	}
-	n, err := app.Store.Count()
+	n, err := app.Service.Repo.Count()
 	if err != nil || n != 1 {
 		t.Fatalf("DB'de 1 kayıt bekleniyordu, n=%d err=%v", n, err)
 	}
-	if got := app.Store.(*fakeStore).last(); got.email != "test@ornek.com" {
+	if got := app.Service.Repo.(*fakeStore).last(); got.email != "test@ornek.com" {
 		t.Fatalf("e-posta normalize edilmedi: %q", got.email)
 	}
 }
@@ -112,7 +114,7 @@ func TestInvalidEmail(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "email") {
 		t.Fatalf("alan bazlı email hatası yok: %s", rec.Body.String())
 	}
-	if n, _ := app.Store.Count(); n != 0 {
+	if n, _ := app.Service.Repo.Count(); n != 0 {
 		t.Fatalf("hatalı kayıtta DB boş olmalı, n=%d", n)
 	}
 }
@@ -137,7 +139,7 @@ func TestFieldLengths(t *testing.T) {
 			if !strings.Contains(rec.Body.String(), c.field) {
 				t.Fatalf("%s alan hatası yok: %s", c.field, rec.Body.String())
 			}
-			if n, _ := app.Store.Count(); n != 0 {
+			if n, _ := app.Service.Repo.Count(); n != 0 {
 				t.Fatalf("DB boş olmalı, n=%d", n)
 			}
 		})
@@ -170,14 +172,14 @@ func TestBadEnvelope(t *testing.T) {
 	if rec.Code < 400 || rec.Code > 499 {
 		t.Fatalf("büyük body: kod = %d, 4xx istendi", rec.Code)
 	}
-	if n, _ := app.Store.Count(); n != 0 {
+	if n, _ := app.Service.Repo.Count(); n != 0 {
 		t.Fatalf("DB boş olmalı, n=%d", n)
 	}
 }
 
 func TestDBFailure(t *testing.T) {
 	app := newTestApp(t, 100)
-	app.Store.(*fakeStore).fail = true // DB arızası simülasyonu
+	app.Service.Repo.(*fakeStore).fail = true // DB arızası simülasyonu
 	rec := postJSON(t, app, validBody(), "application/json")
 	if rec.Code != 500 {
 		t.Fatalf("kod = %d, istendi 500", rec.Code)
@@ -207,7 +209,7 @@ func TestHealthz(t *testing.T) {
 	if rec.Code != 200 || !bytes.Contains(rec.Body.Bytes(), []byte(`"ok":true`)) {
 		t.Fatalf("healthz 200 bekleniyordu: %d %s", rec.Code, rec.Body.String())
 	}
-	app.Store.(*fakeStore).fail = true
+	app.Service.Repo.(*fakeStore).fail = true
 	rec = httptest.NewRecorder()
 	app.Health(rec, req)
 	if rec.Code != 500 {
@@ -242,7 +244,7 @@ func TestCSRFOrigin(t *testing.T) {
 	if rec := postWithOrigin(t, app, "http://example.com"); rec.Code != 201 {
 		t.Fatalf("eşleşen Origin: kod = %d, istendi 201", rec.Code)
 	}
-	if n, _ := app.Store.Count(); n != 2 {
+	if n, _ := app.Service.Repo.Count(); n != 2 {
 		t.Fatalf("DB'de 2 kayıt bekleniyordu, n=%d", n)
 	}
 }
@@ -293,5 +295,39 @@ func TestStatus(t *testing.T) {
 	}
 	if code, out := get(); code != 200 || out["requests_total"] != float64(1) {
 		t.Fatalf("kayıt sonrası total=1 bekleniyordu: %d %v", code, out)
+	}
+}
+
+func TestDemo(t *testing.T) {
+	app := newTestApp(t, 100)
+	req := httptest.NewRequest("GET", "/api/demo", nil)
+	rec := httptest.NewRecorder()
+	app.Demo(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("kod = %d, istendi 200", rec.Code)
+	}
+	var out struct {
+		OK     bool `json:"ok"`
+		Checks []struct {
+			ID     string `json:"id"`
+			Name   string `json:"name"`
+			Pass   bool   `json:"pass"`
+			Detail string `json:"detail"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || !out.OK {
+		t.Fatalf("demo yanıtı bozuk: %s", rec.Body.String())
+	}
+	if len(out.Checks) != 6 {
+		t.Fatalf("%d check, 6 bekleniyordu", len(out.Checks))
+	}
+	for _, c := range out.Checks {
+		if !c.Pass || c.Detail == "" {
+			t.Fatalf("check kalmış/boş: %+v", c)
+		}
+	}
+	// Demo DB'ye yazmamalı, kota yakmamalı.
+	if n, _ := app.Service.Repo.Count(); n != 0 {
+		t.Fatalf("demo kayıt yazmış, n=%d", n)
 	}
 }

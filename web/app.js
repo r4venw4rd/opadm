@@ -72,6 +72,39 @@ document.addEventListener("DOMContentLoaded", () => {
   statusBtn.addEventListener("click", refreshStatus);
   refreshStatus(); // açılışta bir kez doldur
 
+  const demoBtn = $("demo-btn");
+  demoBtn.addEventListener("click", async () => {
+    const msg = $("demo-msg");
+    const list = $("demo-list");
+    demoBtn.disabled = true;
+    msg.textContent = "Deneniyor…";
+    try {
+      const res = await fetch("/api/demo");
+      const data = await res.json();
+      if (res.ok && data.ok === true && Array.isArray(data.checks)) {
+        list.textContent = ""; // textContent: güvenli temizlik
+        let failed = 0;
+        for (const c of data.checks) {
+          const li = document.createElement("li");
+          // Sembol + metin: yalnızca renge bırakılmaz.
+          li.textContent = (c.pass === true ? "✓ " : "✗ ") + c.name + " — " + c.detail;
+          li.dataset.pass = c.pass === true ? "yes" : "no";
+          list.appendChild(li);
+          if (c.pass !== true) failed++;
+        }
+        msg.textContent = failed === 0
+          ? "Tüm özellikler çalışıyor (" + data.checks.length + "/" + data.checks.length + ")."
+          : failed + " özellik kalmış, detaya bakın.";
+      } else {
+        msg.textContent = "Demo alınamadı.";
+      }
+    } catch {
+      msg.textContent = "Demo alınamadı: bağlantınızı kontrol edin.";
+    } finally {
+      demoBtn.disabled = false;
+    }
+  });
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (btn.disabled) return; // çift gönderimi engelle

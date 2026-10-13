@@ -19,7 +19,8 @@
   **Vercel + Supabase'e geçiş** ("vercel gibi bi yere deploy edicez, database
   supabase olacak"). Son karar brief'in Go+SQLite şartından bilinçli sapmadır;
   AI önce brief'e bağlı kalmayı savundu (gerekçesi raporda), kullanıcı ısrar
-  edince uyguladı.
+  edince uyguladı. Ayrıca **DDD + canlı demo** ("mimari ddd'den aşağısı kurtarmaz",
+  "live'daki app özelliklerimiz var desin, demo liveda olacak").
 - **AI yazdı:** `main.go`, `internal/{store,handler,ratelimit}`, testler,
   `web/{index.html,app.js,style.css}`, Dockerfile/compose/systemd, README, bu dosya.
 - **Kullanıcı seçimi/kararı bu oturumda ayrıca istenmedi** (brief "sormadan makul
@@ -84,9 +85,12 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
 - Kullanıcı "eksikleri de çöz" dedi. Çözülenler: Origin/Referer same-origin
   kontrolü (403), limiter boş-girdi temizliği + 5 dk janitor, TRUST_PROXY env
   (varsayılan kapalı). Çözülmeyenler (gerekçeli): admin panel (brief kamuya açık
-  listelemeyi yasaklıyor, PII riski), e-posta onayı (SMTP altyapısı ister),
-  MX kontrolü (DNS'e bağımlı, fail-open anlamsız olurdu). `go vet` + `go test
-  -race` yeşil (handler 11 + ratelimit 2 test).
+  listelemeyi yasaklıyor, PII riski; Supabase'te Table Editor var), e-posta onayı
+  (SMTP altyapısı ister), MX kontrolü (DNS'e bağımlı, fail-open anlamsız olurdu).
+- DDD geçişi: domain (Request/Validate/AllowedOrigin/Repository) +
+  application (Submit/Snapshot/RunDemo) + infrastructure (http/postgres/ratelimit);
+  handler ince adaptör. `/api/demo` + sayfada "Canlı demo" bölümü: 6 check canlı
+  koşar, yazma/kota yok. `go vet` + `go test -race` yeşil (domain/app/http/pg-skip/ratelimit).
 - "Canlı durum" demosu (`GET /api/status` + sayfada sayaç bölümü) **kullanıcı
   fikri** ("docker üzerinden reel demo, sistem bilgileri çeken demomsu şey").
   Kişisel veri dönmez (uptime, saat, toplam kayıt); form başarısı sayacı

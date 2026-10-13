@@ -16,18 +16,21 @@ gerçek talep toplanmaz (footer'da da yazar).
 
 ## Mimari ve dosya yapısı
 
-Go (stdlib) + Supabase Postgres (pgx), vanilla frontend. Framework yok.
+Go (stdlib) + Supabase Postgres (pgx), vanilla frontend. Mimari: DDD katmanları.
+Framework yok; katmanlar arası bağımlılık tek yönlüdür (domain kimseyi bilmez).
 
 ```
-main.go                        yerel/Docker çalıştırma: env, mux, timeout, middleware
-api/requests/ POST /api/requests (Vercel fonksiyonu, aynı handler)
-api/status/    GET /api/status   (Vercel fonksiyonu, aynı handler)
-internal/handler/handler.go    doğrulama, 201/400/403/429/500, NewFromEnv kurulum
-internal/store/store.go        Postgres INSERT (parametrik, RETURNING id), Ping, Count
-internal/ratelimit/            in-memory IP başına limit (10/dk) + janitor
-internal/handler/handler_test.go fake store ile DB'siz testler
-internal/store/store_test.go   TEST_DATABASE_URL varsa entegrasyon, yoksa skip
-web/index.html, app.js, style.css statik frontend (Vercel'de outputDirectory)
+main.go                              binary girişi: env, mux, timeout, middleware
+api/requests|status|demo/            Vercel fonksiyonları (ince; aynı use case'ler)
+internal/domain/                     Request + Validate/Normalize + AllowedOrigin + Repository arayüzü
+internal/application/                Service: Submit / Snapshot / Ping / RunDemo (use case'ler)
+internal/infrastructure/http/        adaptör: JSON/başlık/HTTP kodu, iş kuralı yok
+internal/infrastructure/postgres/    Repository gerçekleşimi (parametrik SQL)
+internal/infrastructure/ratelimit/   IP başına limit (10/dk) + janitor + Peek
+internal/{domain,application}/..._test.go katman testleri (fake repo, DB'siz)
+internal/infrastructure/http/handler_test.go uç testler (fake repo ile 201/400/403/429/500/demo)
+internal/infrastructure/postgres/store_test.go TEST_DATABASE_URL ile entegrasyon (yoksa skip)
+web/                                 statik frontend (Vercel'de outputDirectory)
 supabase/migrations/001_create_requests.sql  tablo + CHECK + RLS (dashboard'da 1 kez)
 vercel.json, Dockerfile, docker-compose.yml (app + yerel postgres), .env.example
 ```
@@ -73,11 +76,13 @@ go test -race ./...
 TEST_DATABASE_URL='postgres://...' SIMPLE_PROTOCOL=1 go test ./internal/store/ -run Integration -v
 ```
 
-Birim testler fake store ile DB'siz koşar: geçerli kayıt (201 + kayıt var +
+Birim testler fake repo ile DB'siz koşar: geçerli kayıt (201 + kayıt var +
 e-posta normalize), geçersiz e-posta (400 + kayıt yok), alan uzunlukları,
 geçersiz service, bilinmeyen alan / yanlış Content-Type (415) / 16 KB üstü
 body, DB arızası (500, başarı yok), rate limit (429), yabancı Origin (403),
-TRUST_PROXY kapalı/açık, limiter temizliği, `/healthz`, `/api/status` (sayaç 0→1).
+TRUST_PROXY kapalı/açık, limiter temizliği, `/healthz`, `/api/status` (sayaç 0→1),
+`/api/demo` (6 check geçer, yazma/kota yok). Domain ve application katmanlarının
+ayrı testleri var (Validate/Normalize/AllowedOrigin, Submit/RunDemo/Snapshot).
 
 ## Deploy: Supabase + Vercel (kullanıcı yapacak)
 
@@ -122,6 +127,16 @@ postgres birlikte ayağa kalkar. `opadm.service` systemd örneği de duruyor
 ```jsonc
 {"ok":true,"time":"2026-10-13T13:52:11Z","uptime_s":1,"requests_total":1,
  "host":"a1b2c3d4e5f6","in_docker":true,"go":"go1.26.0","goroutines":5,"cpu":24,"mem_alloc_mb":3}
+```
+
+`GET /api/demo` → özellikleri canlı dener; DB'ye yazmaz, kota yakmaz.
+Sayfadaki "Canlı demo" bölümü buradan beslenir:
+
+```jsonc
+{"ok":true,"checks":[
+  {"id":"validation","name":"Doğrulama","pass":true,"detail":"bozuk örnek 4 hata, sağlam örnek 0 hata"},
+  // + normalize, csrf, ratelimit, database, limiter-state
+]}
 ```
 
 Kurallar: name 2-80, email format + ≤254 (küçük harfe normalize), service

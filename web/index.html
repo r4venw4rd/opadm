@@ -3,121 +3,210 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>opadm — Sunucu bakım ve yedekleme</title>
-<meta name="description" content="opadm: küçük ekipler için sunucu bakım, yedekleme kurulumu ve izleme.">
+<title>opadm — Sunucu bakım, yedekleme ve izleme</title>
+<meta name="description" content="opadm: küçük ekipler için sunucu bakım, yedekleme kurulumu ve izleme. Gece çöken sunucu, denenmemiş yedek derdi bitsin.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 <script src="/app.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#form-heading">Forma atla</a>
+<div class="bg-fx" aria-hidden="true"></div>
+
 <header class="wrap site-header">
-  <p class="brand">opadm</p>
+  <p class="brand"><span class="brand-mark" aria-hidden="true">$</span> opadm</p>
   <nav aria-label="Sayfa bölümleri">
     <a href="#hizmetler">Hizmetler</a>
     <a href="#nasil">Nasıl çalışır</a>
     <a href="#durum">Canlı durum</a>
-    <a href="#talep">Talep formu</a>
+    <a href="#demo">Demo</a>
+    <a class="nav-cta" href="#talep">Talep oluştur</a>
   </nav>
 </header>
 
 <main class="wrap">
   <section class="hero" aria-labelledby="hero-heading">
-    <h1 id="hero-heading">Sunucunuz gece çöktüğünde yedeğinizin çalıştığından emin olun.</h1>
-    <p>Tam zamanlı DevOps'çusu olmayan küçük ekipler için bakım, yedekleme ve izleme kurulumu yapıyoruz.</p>
-    <a class="btn" href="#talep">Talep oluştur</a>
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="pulse" aria-hidden="true"></span> Küçük ekipler için DevOps &middot; Bakım + Yedek + İzleme</p>
+      <h1 id="hero-heading">Sunucunuz gece çöktüğünde yedeğinizin <span class="hl">çalıştığından</span> emin olun.</h1>
+      <p class="lede">Tam zamanlı DevOps'çusu olmayan ekipler için bakım, yedekleme ve izleme kurulumu yapıyoruz. Kurar, test eder, alarmı bağlar, belgeler teslim ederiz.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#talep">Talep oluştur</a>
+        <a class="btn btn-ghost" href="#durum">Canlı durumu gör</a>
+      </div>
+      <ul class="hero-meta">
+        <li><strong>30 dk</strong><span>ücretsiz keşif</span></li>
+        <li><strong>2 iş günü</strong><span>yanıt süresi</span></li>
+        <li><strong>%100</strong><span>geri yükleme testi</span></li>
+      </ul>
+    </div>
+    <div class="hero-terminal" role="presentation">
+      <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>opadm — prod</span></div>
+      <pre class="term-body"><code><span class="t-dim">$ opadm status --live</span>
+<span class="t-green">● ONLINE</span> <span class="t-dim">uptime izleniyor</span>
+<span class="t-dim">$ opadm backup verify --last</span>
+restore test <span class="t-green">PASSED</span> <span class="t-dim">2.1s</span>
+<span class="t-dim">$ opadm monitor --watch</span>
+uptime  disk  svc  <span class="t-green">OK OK OK</span>
+<span class="t-dim"># bu panel aşağıdaki canlı durumdan beslenir</span><span class="caret" aria-hidden="true">▊</span></code></pre>
+    </div>
+  </section>
+
+  <section class="strip" aria-label="Güven göstergeleri">
+    <ul>
+      <li><strong>Otomatik yedek</strong><span>her gece + doğrulama</span></li>
+      <li><strong>E-posta alarmı</strong><span>uptime / disk / servis</span></li>
+      <li><strong>SSH + firewall</strong><span>sıkılaştırma dahil</span></li>
+      <li><strong>Belge teslimi</strong><span>runbook + erişim listesi</span></li>
+    </ul>
   </section>
 
   <section aria-labelledby="problem-heading">
     <h2 id="problem-heading">Tanıdık sorunlar</h2>
+    <p class="sec-sub">Bunlardan biri bile varsa kurulum zamanı gelmiş demektir.</p>
     <ul class="grid">
-      <li>Sunucu gece çöküyor, haberiniz sabah oluyor.</li>
-      <li>Yedek alınıyor ama geri yükleme hiç denenmemiş.</li>
-      <li>Güvenlik güncellemelerini takip edecek kimse yok.</li>
+      <li class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        <strong>Gece çöküyor, sabah öğreniyorsunuz</strong>
+        <span>Kimse bakmıyorken servis düşüyor. Alarm yok, log'a sabah bakılıyor.</span>
+      </li>
+      <li class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a8 8 0 0 1 14.9-2M20 17a8 8 0 0 1-14.9 2"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>
+        <strong>Yedek alınıyor ama hiç denenmemiş</strong>
+        <span>Geri yükleme testi yapılmayan yedek, lazım olana kadar çalışıyor sanılır.</span>
+      </li>
+      <li class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg>
+        <strong>Güncellemeyi takip eden yok</strong>
+        <span>SSH, firewall ve yamalar sahipsiz. İlk saldırıda fark ediliyor.</span>
+      </li>
     </ul>
   </section>
 
   <section id="hizmetler" aria-labelledby="services-heading">
     <h2 id="services-heading">Hizmetler</h2>
+    <p class="sec-sub">Üç net kapsam. Hepsinde kurulum + test + belge var.</p>
     <div class="grid cards">
-      <article>
+      <article class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
         <h3>Yedekleme kurulumu</h3>
-        <p>Otomatik yedek ve kurulum sonrası birlikte geri yükleme testi.</p>
+        <p>Otomatik yedek ve kurulum sonrası birlikte geri yükleme testi. Geri yüklenemeyen yedeği teslim etmiyoruz.</p>
+        <p class="tag-row"><span class="tag">gece yedeği</span><span class="tag">restore testi</span></p>
       </article>
-      <article>
+      <article class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
         <h3>İzleme ve alarm</h3>
-        <p>Çalışma süresi, disk ve servis durumu için e-posta alarmı.</p>
+        <p>Çalışma süresi, disk ve servis durumu için e-posta alarmı. Düştüğünü sizden önce biz değil, alarm bilsin.</p>
+        <p class="tag-row"><span class="tag">uptime</span><span class="tag">disk</span><span class="tag">servis</span></p>
       </article>
-      <article>
+      <article class="card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
         <h3>Güvenlik sıkılaştırma</h3>
-        <p>SSH, güvenlik duvarı ve güncelleme politikası kurulumu.</p>
+        <p>SSH, güvenlik duvarı ve güncelleme politikası kurulumu. Erişim listesi ve runbook ile teslim.</p>
+        <p class="tag-row"><span class="tag">ssh</span><span class="tag">firewall</span><span class="tag">yama</span></p>
       </article>
     </div>
   </section>
 
   <section id="nasil" aria-labelledby="steps-heading">
     <h2 id="steps-heading">Nasıl çalışır</h2>
+    <p class="sec-sub">Üç adımda yayına. Sürpriz kapsam, sürpriz fatura yok.</p>
     <ol class="grid steps">
-      <li><strong>1. Talep:</strong> Aşağıdaki formu doldurun.</li>
-      <li><strong>2. Keşif görüşmesi:</strong> Ücretsiz, 30 dakikalık çevrimiçi görüşme.</li>
-      <li><strong>3. Kurulum:</strong> Birlikte kararlaştırdığımız kapsamı kurarız.</li>
+      <li class="card"><span class="step-n" aria-hidden="true">01</span><strong>Talep</strong><span>Aşağıdaki formu doldurun. 2 iş günü içinde döneriz.</span></li>
+      <li class="card"><span class="step-n" aria-hidden="true">02</span><strong>Keşif görüşmesi</strong><span>Ücretsiz, 30 dakikalık çevrimiçi görüşme. Kapsamı birlikte netleştiririz.</span></li>
+      <li class="card"><span class="step-n" aria-hidden="true">03</span><strong>Kurulum</strong><span>Kararlaştırdığımız kapsamı kurar, test eder, belgeleriz.</span></li>
     </ol>
   </section>
 
   <section id="durum" aria-labelledby="status-heading">
-    <h2 id="status-heading">Canlı durum</h2>
-    <p>Bu sayfa çalışan sunucudan beslenir. Formu gönderip sayacı artırabilirsiniz.</p>
-    <dl>
-      <div><dt>Sunucu saati (UTC)</dt><dd id="st-time">—</dd></div>
-      <div><dt>Çalışma süresi (sn)</dt><dd id="st-uptime">—</dd></div>
-      <div><dt>Toplam kayıt</dt><dd id="st-total">—</dd></div>
-      <div><dt>Host (container ID)</dt><dd id="st-host">—</dd></div>
-      <div><dt>Docker içinde</dt><dd id="st-docker">—</dd></div>
-      <div><dt>Go sürümü</dt><dd id="st-go">—</dd></div>
-      <div><dt>Goroutine / CPU</dt><dd id="st-rt">—</dd></div>
-      <div><dt>Bellek (MB)</dt><dd id="st-mem">—</dd></div>
-    </dl>
-    <button class="btn" type="button" id="status-btn">Durumu yenile</button>
-    <p id="status-msg" role="status" aria-live="polite"></p>
+    <div class="status-head">
+      <div>
+        <h2 id="status-heading">Canlı durum</h2>
+        <p class="sec-sub">Bu sayfa çalışan sunucudan beslenir. Formu gönderip sayacı artırabilirsiniz.</p>
+      </div>
+      <p class="live-badge"><span class="pulse" aria-hidden="true"></span> LIVE</p>
+    </div>
+    <div class="status-panel">
+      <dl class="status-grid">
+        <div><dt>Sunucu saati <span class="unit">UTC</span></dt><dd id="st-time">—</dd></div>
+        <div><dt>Çalışma süresi <span class="unit">sn</span></dt><dd id="st-uptime">—</dd></div>
+        <div><dt>Toplam kayıt</dt><dd id="st-total">—</dd></div>
+        <div><dt>Host <span class="unit">container</span></dt><dd id="st-host">—</dd></div>
+        <div><dt>Docker içinde</dt><dd id="st-docker">—</dd></div>
+        <div><dt>Go sürümü</dt><dd id="st-go">—</dd></div>
+        <div><dt>Goroutine / CPU</dt><dd id="st-rt">—</dd></div>
+        <div><dt>Bellek <span class="unit">MB</span></dt><dd id="st-mem">—</dd></div>
+      </dl>
+      <div class="status-actions">
+        <button class="btn btn-primary" type="button" id="status-btn">Durumu yenile</button>
+        <p id="status-msg" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo" aria-labelledby="demo-heading">
+    <h2 id="demo-heading">Canlı demo: özelliklerimiz</h2>
+    <p class="sec-sub">Aşağıdaki testler bu sunucuda gerçekten koşar; DB'ye yazılmaz, kota yakılmaz.</p>
+    <div class="status-panel">
+      <ul id="demo-list" class="demo-list">
+        <li>Henüz çalıştırılmadı — düğmeye basın.</li>
+      </ul>
+      <div class="status-actions">
+        <button class="btn btn-primary" type="button" id="demo-btn">Özellikleri dene</button>
+        <p id="demo-msg" role="status" aria-live="polite"></p>
+      </div>
+    </div>
   </section>
 
   <section id="talep" aria-labelledby="form-heading">
-    <h2 id="form-heading">Talep formu</h2>
-    <p id="form-desc">Tüm alanlar zorunludur. Ortalama yanıt süremiz 2 iş günüdür.</p>
-    <form id="request-form" action="/api/requests" method="post" novalidate aria-describedby="form-desc">
-      <div class="field">
-        <label for="name">Adınız</label>
-        <input id="name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="80" aria-describedby="name-err">
-        <p class="err" id="name-err" hidden></p>
+    <div class="form-shell">
+      <div class="form-intro">
+        <h2 id="form-heading">Talep formu</h2>
+        <p id="form-desc">Tüm alanlar zorunludur. Ortalama yanıt süremiz 2 iş günüdür. Kurgusal demo — gerçek talep toplanmaz, verileriniz yalnızca bu sunucuda sayaca işlenir.</p>
+        <ul class="check-list">
+          <li>30 dk ücretsiz keşif</li>
+          <li>Kurulum + test + belge</li>
+          <li>Spam yok, satış baskısı yok</li>
+        </ul>
       </div>
-      <div class="field">
-        <label for="email">E-posta</label>
-        <input id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="email-err">
-        <p class="err" id="email-err" hidden></p>
-      </div>
-      <div class="field">
-        <label for="service">Hizmet</label>
-        <select id="service" name="service" required aria-describedby="service-err">
-          <option value="">Seçin…</option>
-          <option value="backup">Yedekleme kurulumu</option>
-          <option value="monitoring">İzleme ve alarm</option>
-          <option value="hardening">Güvenlik sıkılaştırma</option>
-        </select>
-        <p class="err" id="service-err" hidden></p>
-      </div>
-      <div class="field">
-        <label for="message">Mesajınız</label>
-        <textarea id="message" name="message" rows="5" required minlength="10" maxlength="1000" aria-describedby="message-err"></textarea>
-        <p class="err" id="message-err" hidden></p>
-      </div>
-      <button class="btn" type="submit" id="submit-btn">Gönder</button>
-      <p id="form-status" role="status" aria-live="polite"></p>
-    </form>
+      <form id="request-form" action="/api/requests" method="post" novalidate aria-describedby="form-desc">
+        <div class="field">
+          <label for="name">Adınız</label>
+          <input id="name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="80" aria-describedby="name-err" placeholder="Adınız Soyadınız">
+          <p class="err" id="name-err" hidden></p>
+        </div>
+        <div class="field">
+          <label for="email">E-posta</label>
+          <input id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="email-err" placeholder="ornek@sirket.com">
+          <p class="err" id="email-err" hidden></p>
+        </div>
+        <div class="field">
+          <label for="service">Hizmet</label>
+          <select id="service" name="service" required aria-describedby="service-err">
+            <option value="">Seçin…</option>
+            <option value="backup">Yedekleme kurulumu</option>
+            <option value="monitoring">İzleme ve alarm</option>
+            <option value="hardening">Güvenlik sıkılaştırma</option>
+          </select>
+          <p class="err" id="service-err" hidden></p>
+        </div>
+        <div class="field">
+          <label for="message">Mesajınız</label>
+          <textarea id="message" name="message" rows="5" required minlength="10" maxlength="1000" aria-describedby="message-err" placeholder="Sunucunuz, işletim sisteminiz ve sorununuzdan kısaca bahsedin (en az 10 karakter)…"></textarea>
+          <p class="err" id="message-err" hidden></p>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="submit-btn">Talebi gönder</button>
+        <p id="form-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
   </section>
 </main>
 
 <footer class="wrap site-footer">
-  <p>opadm — küçük ekipler için sunucu bakımı.</p>
-  <p>Bu sayfa değerlendirme amaçlı kurgusal bir hizmettir; gerçek talep toplanmaz.</p>
+  <p><span class="brand-mark" aria-hidden="true">$</span> <strong>opadm</strong> — küçük ekipler için sunucu bakımı.</p>
+  <p class="foot-dim">Bu sayfa değerlendirme amaçlı kurgusal bir hizmettir; gerçek talep toplanmaz.</p>
 </footer>
 </body>
 </html>

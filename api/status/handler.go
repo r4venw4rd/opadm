@@ -4,18 +4,18 @@ import (
 	"net/http"
 	"sync"
 
-	"opadm/internal/handler"
+	httphandler "opadm/internal/infrastructure/http"
 )
 
 // Vercel Go fonksiyonu: GET /api/status.
 var (
-	statusApp  *handler.App
+	statusApp  *httphandler.App
 	statusErr  error
 	statusOnce sync.Once
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	statusOnce.Do(func() { statusApp, statusErr = handler.NewFromEnv() })
+	statusOnce.Do(func() { statusApp, statusErr = httphandler.NewFromEnv() })
 	if statusErr != nil || statusApp == nil {
 		http.Error(w, "Sunucu hatası.", http.StatusInternalServerError)
 		return

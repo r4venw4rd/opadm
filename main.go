@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"opadm/internal/handler"
+	httphandler "opadm/internal/infrastructure/http"
 )
 
 //go:embed web
@@ -49,16 +49,17 @@ func recoverPanic(next http.Handler) http.Handler {
 func main() {
 	port := env("PORT", "8080")
 
-	app, err := handler.NewFromEnv()
+	app, err := httphandler.NewFromEnv()
 	if err != nil {
 		log.Fatalf("setup: %v", err)
 	}
-	defer app.Store.Close()
+	defer app.Service.Repo.Close()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/requests", app.Create)
 	mux.HandleFunc("GET /healthz", app.Health)
 	mux.HandleFunc("GET /api/status", app.Status)
+	mux.HandleFunc("GET /api/demo", app.Demo)
 
 	// Gömülü statik dosyalar (tek binary).
 	web, _ := fs.Sub(webFS, "web")

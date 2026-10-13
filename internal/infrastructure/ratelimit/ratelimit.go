@@ -44,6 +44,24 @@ func (l *Limiter) Allow(ip string) bool {
 	return true
 }
 
+// Peek, kota yakmadan bakar: kalan hak ve limit durumu döner.
+// Demo endpoint'i gerçek limiter'ı tüketmeden yoklamak için kullanır.
+func (l *Limiter) Peek(ip string) (remaining int, limited bool) {
+	cutoff := time.Now().Add(-l.window)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	n := 0
+	for _, t := range l.hits[ip] {
+		if t.After(cutoff) {
+			n++
+		}
+	}
+	return l.max - n, n >= l.max
+}
+
+// Quota, politikayı döndürür (demo detayında gösterilir).
+func (l *Limiter) Quota() (max int, window string) { return l.max, l.window.String() }
+
 // Cleanup, penceresi dolmuş tüm girdileri siler. StartJanitor periyodik
 // çağırır; testler doğrudan çağırabilir.
 func (l *Limiter) Cleanup() {

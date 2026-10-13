@@ -4,19 +4,19 @@ import (
 	"net/http"
 	"sync"
 
-	"opadm/internal/handler"
+	httphandler "opadm/internal/infrastructure/http"
 )
 
 // Vercel Go fonksiyonu: POST /api/requests.
 // Soğuk başlatmada bir kez kurulur, sonraki çağrılar havuzu tekrar kullanır.
 var (
-	app     *handler.App
+	app     *httphandler.App
 	appErr  error
 	appOnce sync.Once
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	appOnce.Do(func() { app, appErr = handler.NewFromEnv() })
+	appOnce.Do(func() { app, appErr = httphandler.NewFromEnv() })
 	if appErr != nil || app == nil {
 		http.Error(w, "Sunucu hatası.", http.StatusInternalServerError)
 		return
