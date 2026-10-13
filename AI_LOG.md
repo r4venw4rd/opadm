@@ -3,7 +3,7 @@
 ## Araçlar
 
 - OpenCode kodlama aracısı, model: Muse Spark (`muse-spark`).
-- Go 1.27 araç zinciri, `go vet`, `go test -race`, curl, sqlite3 (yerel doğrulama).
+- Go araç zinciri go1.27.0 (`go.mod` yönergesi `go 1.26.0`), `go vet`, `go test -race`, curl, sqlite3 (yerel doğrulama).
 - Değerlendirme rehberi `https://ai.enteksis.com.tr/degerlendirme-rehberi.md` okundu;
   brief ile çelişen/eklenen şart bulunamadı (tek commit geçerli, hata uydurma
   beklenmez, görüşmede anlatım + küçük değişiklik not edildi).
@@ -43,6 +43,10 @@
   özet saklandı, gerekçesi README'de (KVKK temkinliliği + bilinen eksik notu).
 
 ## Doğrulama (komutlar + gerçek çıktılar)
+
+> Not: aşağıdaki çıktılar ilk oturumlardan tarihsel kayıttır (SQLite +
+> DDD-öncesi dönem; eski paket yolları o güne aittir). Güncel doğrulama en
+> alttaki revizyon bölümündedir.
 
 ```sh
 $ go vet ./...
@@ -166,3 +170,36 @@ burada açık yazılmıştır.
   yapılmadı (hesap/erişim yok); adımlar kullanıcının çalıştıracağı komutlar
   olarak README'de. Birim testler fake store ile DB'siz yeşil; entegrasyon
   testi TEST_DATABASE_URL ile kullanıcıda koşacak şekilde kapılı.
+
+## Revizyon: denetim + demo/auth kaldırma (kullanıcı onaylı)
+
+- Önce dosya değiştirmeden denetim yapıldı: mimari çıkarıldı, `go vet` +
+  `go test ./...` koşuldu (hepsi OK, 1 entegrasyon skip), a-e maddeleri
+  raporlanıp onay beklendi. Onaylar: demo/status/live + auth kaldırılacak,
+  "2 iş günü" silinecek, README/AI_LOG düzeltilecek; `/healthz` DB ping'li
+  kalacak.
+- Gerçek akış (özet): SQLite→Supabase Postgres + DDD geçişi, demo
+  (`/api/demo` + 10 check), durum (`/api/status` + `/api/live` soket) ve
+  üyelik (`/api/auth/*`, users/sessions, `/login/`, `/signup/`, `/panel/`)
+  eklendi; sonra hepsi bu revizyonda kaldırıldı. Kalan endpoint'ler:
+  `POST /api/requests` + `GET /healthz`. Kalan sayfalar: `/` (tanıtım + form).
+- Demo'nun değerli mantığı ayrıca taşınmadı: doğrulama
+  (`TestValidate`/`TestNormalize`), Origin (`TestAllowedOrigin`) ve limiter
+  (`TestCleanup`/`TestStaleEntryDeletedOnAllow`/`TestRelease`) zaten unit
+  testlerde kilitliydi.
+- Migration kararı (gerekçe): `002_auth.sql` dosyası silinmedi (tarihçe);
+  uygulanmış DB'lerde users/sessions kalırdı. İleri migration
+  `003_drop_auth.sql` (`drop table if exists public.sessions/users`) hem
+  uygulanmış hem sıfır DB'yi aynı son duruma getirir.
+- Commit'ler (her birinden sonra `go vet` + `go test -race ./...` yeşil;
+  geri alma gerekmedi):
+  - `273f80d` auth/demo/status/live kaldırma (31 dosya, -2122 satır;
+    `coder/websocket` + `x/crypto` bağımlılıktan düştü).
+  - `92106ad` "2 iş günü" vaatlerinin silinmesi (landing, landing.js, README).
+- Bu oturumun doğrulaması (gerçek çıktılar):
+  `go vet ./...` temiz; `go test -race -count=1 ./...` →
+  ok application, domain, infrastructure/http, infrastructure/postgres
+  (TestIntegration SKIP), ratelimit. Kalan test sayımı: application 1
+  (TestSubmit), domain 3, http 10 (ValidInsert/InvalidEmail/FieldLengths+5
+  alt/InvalidService/BadEnvelope/DBFailure/RateLimit/Healthz/CSRFOrigin/
+  TrustProxyDefaultOff), ratelimit 3, postgres 1 (skip).
