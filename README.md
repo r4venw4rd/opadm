@@ -66,6 +66,7 @@ psql 'postgres://opadm:opadm@localhost:5432/opadm?sslmode=disable' \
 | SIMPLE_PROTOCOL | 0          | `1`: simple protocol (Supabase pooler transaction mode'da şart) |
 | TRUST_PROXY     | 0          | `1` ise proxy başlıklarına güven (Vercel/tunnel arkası)    |
 | SESSION_SECURE  | 0          | `1` çereze Secure ekler (HTTPS; Vercel'de 1, yerelde 0)    |
+| APP_VERSION     | dev        | Canlıdaki kod kimliği (demo/sürüm kanıtında görünür)       |
 | PORT            | 8080       | Dinlenecek port (yalnızca binary; Vercel'de geçersiz)      |
 
 `.env.example` şablondur; gerçek değerler `.env`'de (repoya girmez) ve

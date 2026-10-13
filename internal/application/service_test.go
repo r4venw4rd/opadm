@@ -57,12 +57,29 @@ func (f *fakeRepo) DBInfo() (domain.DBIdentity, error) {
 	return domain.DBIdentity{Version: "fake-postgres 0 (test)", Database: "fake"}, nil
 }
 
-func (f *fakeRepo) ProveWrite() (int64, error) {
+func (f *fakeRepo) FullCycle() (int64, int, int, error) {
+	if f.fail {
+		return 0, 0, 0, errors.New("db down")
+	}
+	// Tur benzetimi: yazıldı, okundu, silindi; sayaç oynamaz.
+	return int64(len(f.rows) + 1), len(f.rows), len(f.rows), nil
+}
+
+func (f *fakeRepo) SchemaTables() ([]string, error) {
+	if f.fail {
+		return nil, errors.New("db down")
+	}
+	return nil, nil // eksik yok
+}
+
+func (f *fakeRepo) DBSizeBytes() (int64, error) {
 	if f.fail {
 		return 0, errors.New("db down")
 	}
-	return int64(len(f.rows) + 1), nil // geri alınmış gibi: sayaç oynamaz
+	return 8192, nil
 }
+
+func (f *fakeRepo) PoolStats() (int, int, int) { return 1, 0, 1 }
 
 func (f *fakeRepo) CreateUser(email, hash string) (int64, error) {
 	if f.fail {
@@ -123,7 +140,7 @@ func (f *fakeRepo) DeleteExpiredSessions() error { return nil }
 
 func newSvc() (*Service, *fakeRepo) {
 	r := &fakeRepo{}
-	return New(r, r, time.Now()), r
+	return New(r, r, time.Now(), "test"), r
 }
 
 func TestSubmit(t *testing.T) {
@@ -152,12 +169,12 @@ func TestRunDemo(t *testing.T) {
 	svc, _ := newSvc()
 	lim := ratelimit.New(10, time.Minute)
 	sizeBefore := lim.Size()
-	checks := svc.RunDemo(lim)
+	checks := svc.RunDemo(lim, "demo@ornek.com")
 	if lim.Size() != sizeBefore {
 		t.Fatalf("demo iz bıraktı: önce %d, sonra %d", sizeBefore, lim.Size())
 	}
-	if len(checks.Checks) != 6 {
-		t.Fatalf("%d check, 6 bekleniyordu", len(checks.Checks))
+	if len(checks.Checks) != 10 {
+		t.Fatalf("%d check, 10 bekleniyordu", len(checks.Checks))
 	}
 	if checks.RunID == "" {
 		t.Fatal("run_id boş olmamalı")

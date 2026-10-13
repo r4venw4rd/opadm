@@ -9,9 +9,15 @@ type Repository interface {
 	Close() error
 	// DBInfo, canlı kanıt için DB'nin kendi ağzından kimlik verir.
 	DBInfo() (DBIdentity, error)
-	// ProveWrite, yazma yolunu uçtan uca dener ve GERİ ALIR (kayıt kalmaz).
-	// Başarılıysa yazılan satırın id'sini döner.
-	ProveWrite() (int64, error)
+	// FullCycle, yazma yolunu uçtan uca dener: yaz → geri oku → sil.
+	// Kalıcı iz bırakmaz; sayaç başa döner. Dönen id kanıttır.
+	FullCycle() (id int64, before, after int, err error)
+	// SchemaTables, beklenen tablolardan eksikleri döner (boş = tam).
+	SchemaTables() (missing []string, err error)
+	// DBSizeBytes, veritabanı boyutudur.
+	DBSizeBytes() (int64, error)
+	// PoolStats, havuzun canlı sayılarıdır.
+	PoolStats() (open, inUse, idle int)
 }
 
 // DBIdentity, "hangi DB, ne zaman" sorusunun DB'den gelen cevabıdır.

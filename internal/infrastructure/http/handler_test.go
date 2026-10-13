@@ -74,15 +74,31 @@ func (f *fakeStore) DBInfo() (domain.DBIdentity, error) {
 	return domain.DBIdentity{Version: "fake-postgres 0 (test)", Database: "fake", Now: "2026-01-01T00:00:00Z"}, nil
 }
 
-func (f *fakeStore) ProveWrite() (int64, error) {
+func (f *fakeStore) FullCycle() (int64, int, int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.fail {
+		return 0, 0, 0, errors.New("db down")
+	}
+	// Tur benzetimi: yazıldı, okundu, silindi; satır eklenmez.
+	return int64(len(f.rows) + 1), len(f.rows), len(f.rows), nil
+}
+
+func (f *fakeStore) SchemaTables() ([]string, error) {
+	if f.fail {
+		return nil, errors.New("db down")
+	}
+	return nil, nil
+}
+
+func (f *fakeStore) DBSizeBytes() (int64, error) {
+	if f.fail {
 		return 0, errors.New("db down")
 	}
-	// Geri alma benzetimi: satır eklenmez, sayaç oynamaz.
-	return int64(len(f.rows) + 1), nil
+	return 8192, nil
 }
+
+func (f *fakeStore) PoolStats() (int, int, int) { return 1, 0, 1 }
 
 func (f *fakeStore) CreateUser(email, hash string) (int64, error) {
 	f.mu.Lock()
@@ -162,7 +178,7 @@ func newTestApp(t *testing.T, max int) *App {
 func newTestAppTrust(t *testing.T, max int, trustProxy bool) *App {
 	t.Helper()
 	f := &fakeStore{}
-	svc := application.New(f, f, time.Now())
+	svc := application.New(f, f, time.Now(), "test")
 	return New(svc, ratelimit.New(max, time.Minute), trustProxy)
 }
 
@@ -441,8 +457,8 @@ func TestDemo(t *testing.T) {
 	if out.RunID == "" {
 		t.Fatal("run_id boş olmamalı (kanıtsız koşu)")
 	}
-	if len(out.Checks) != 6 {
-		t.Fatalf("%d check, 6 bekleniyordu", len(out.Checks))
+	if len(out.Checks) != 10 {
+		t.Fatalf("%d check, 10 bekleniyordu", len(out.Checks))
 	}
 	ids := map[string]bool{}
 	for _, c := range out.Checks {
@@ -451,7 +467,7 @@ func TestDemo(t *testing.T) {
 		}
 		ids[c.ID] = true
 	}
-	for _, want := range []string{"validation", "csrf", "ratelimit", "database", "write-proof", "limiter-state"} {
+	for _, want := range []string{"validation", "csrf", "ratelimit", "database", "write-cycle", "schema", "bcrypt", "session", "version", "limiter-state"} {
 		if !ids[want] {
 			t.Fatalf("%s check'i yok", want)
 		}

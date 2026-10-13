@@ -24,6 +24,15 @@ const maxBodyBytes = 16 * 1024 // 16 KB: form için fazlasıyla yeter, şişkin 
 
 var errNoDatabaseURL = errors.New("DATABASE_URL yok")
 
+// appVersion, canlıdaki kodun kimliğidir (boşsa "dev").
+// Demo/sürüm kanıtı ve "hangi kod koşuyor" sorusu için.
+func appVersion() string {
+	if v := os.Getenv("APP_VERSION"); v != "" {
+		return v
+	}
+	return "dev"
+}
+
 // App, HTTP adaptörüdür: başlık/gövde/JSON ile uğraşır, iş kuralı bilmez.
 // Kurallar application.Service'te, doğrulama domain'dedir.
 type App struct {
@@ -68,7 +77,7 @@ func NewFromEnv() (*App, error) {
 			_ = st.DeleteExpiredSessions()
 		}
 	}()
-	svc := application.New(st, st, time.Now())
+	svc := application.New(st, st, time.Now(), appVersion())
 	app := New(svc, limiter, os.Getenv("TRUST_PROXY") == "1")
 	app.SecureCookies = os.Getenv("SESSION_SECURE") == "1"
 	return app, nil
@@ -203,6 +212,7 @@ func (a *App) snapshotMap() (map[string]any, error) {
 		"goroutines":     snap.Goroutines,
 		"cpu":            snap.CPU,
 		"mem_alloc_mb":   snap.MemAllocMB,
+		"version":        snap.Version,
 	}, nil
 }
 
@@ -269,13 +279,14 @@ func (a *App) Live(w http.ResponseWriter, r *http.Request) {
 // Demo, GET /api/demo. Giriş ister: işveren üye olup girer, özellikleri
 // canlı dener. Her check ölçülebilir kanıt taşır (süre, DB kimliği, deltalar).
 func (a *App) Demo(w http.ResponseWriter, r *http.Request) {
-	if _, ok, _ := a.currentUser(r); !ok {
+	email, ok, _ := a.currentUser(r)
+	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]any{
 			"ok": false, "error": "Demo için giriş yapın.",
 		})
 		return
 	}
-	res := a.Service.RunDemo(a.Limiter)
+	res := a.Service.RunDemo(a.Limiter, email)
 	out := make([]map[string]any, 0, len(res.Checks))
 	for _, c := range res.Checks {
 		out = append(out, map[string]any{

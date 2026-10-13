@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -146,21 +147,76 @@ func (s *Store) DBInfo() (domain.DBIdentity, error) {
 	return domain.DBIdentity{Version: v, Database: db, Now: now, PingUs: time.Since(start).Microseconds()}, nil
 }
 
-// ProveWrite, INSERT yolunu gerçek satırla dener, sonra ROLLBACK eder.
-// Kayıt kalmaz; dönen id "yazma gerçekten çalıştı" kanıtıdır.
-func (s *Store) ProveWrite() (int64, error) {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return 0, err
+// FullCycle, yaz → geri oku → sil. Her adım doğrulanır; sayaç başa döner.
+func (s *Store) FullCycle() (int64, int, int, error) {
+	var n0 int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM requests`).Scan(&n0); err != nil {
+		return 0, 0, 0, err
 	}
-	defer tx.Rollback() // her durumda geri al: demo kirletmez
 	var id int64
-	err = tx.QueryRow(
+	var email string
+	err := s.db.QueryRow(
 		`INSERT INTO requests (name, email, service, message, ip_hash)
 		 VALUES ('__demo__', 'demo@ornek.com', 'backup', 'yazma kaniti', 'demo') RETURNING id`,
 	).Scan(&id)
-	if err != nil {
-		return 0, err
+	if err != nil || id <= 0 {
+		return 0, n0, n0, err
 	}
-	return id, nil
+	if err := s.db.QueryRow(`SELECT email FROM requests WHERE id = $1`, id).Scan(&email); err != nil {
+		return 0, n0, n0, err
+	}
+	if email != "demo@ornek.com" {
+		return 0, n0, n0, errors.New("geri okuma tutmadı")
+	}
+	if _, err := s.db.Exec(`DELETE FROM requests WHERE id = $1`, id); err != nil {
+		return 0, n0, n0, err
+	}
+	var n1 int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM requests`).Scan(&n1); err != nil {
+		return 0, n0, n0, err
+	}
+	return id, n0, n1, nil
+}
+
+// SchemaTables, beklenen tabloların eksiklerini döner.
+func (s *Store) SchemaTables() ([]string, error) {
+	want := []string{"requests", "users", "sessions"}
+	rows, err := s.db.Query(
+		`SELECT table_name FROM information_schema.tables
+		 WHERE table_schema = 'public' AND table_name = ANY ($1)`, want)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	have := map[string]bool{}
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		have[t] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var missing []string
+	for _, t := range want {
+		if !have[t] {
+			missing = append(missing, t)
+		}
+	}
+	return missing, nil
+}
+
+// DBSizeBytes, veritabanı boyutudur.
+func (s *Store) DBSizeBytes() (int64, error) {
+	var n int64
+	err := s.db.QueryRow(`SELECT pg_database_size(current_database())`).Scan(&n)
+	return n, err
+}
+
+// PoolStats, havuzun canlı sayılarıdır.
+func (s *Store) PoolStats() (int, int, int) {
+	st := s.db.Stats()
+	return st.OpenConnections, st.InUse, st.Idle
 }
