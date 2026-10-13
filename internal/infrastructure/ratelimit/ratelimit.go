@@ -45,6 +45,7 @@ func (l *Limiter) Allow(ip string) bool {
 }
 
 // Peek, kota yakmadan bakar: kalan hak ve limit durumu döner.
+// Demo endpoint'i gerçek limiter'ı tüketmeden yoklamak için kullanır.
 func (l *Limiter) Peek(ip string) (remaining int, limited bool) {
 	cutoff := time.Now().Add(-l.window)
 	l.mu.Lock()
@@ -58,10 +59,11 @@ func (l *Limiter) Peek(ip string) (remaining int, limited bool) {
 	return l.max - n, n >= l.max
 }
 
-// Quota, politikayı döndürür.
+// Quota, politikayı döndürür (demo detayında gösterilir).
 func (l *Limiter) Quota() (max int, window string) { return l.max, l.window.String() }
 
-// Release, anahtarı siler.
+// Release, anahtarı siler. Demo probesi işini bitirince çağırır:
+// demo arkadasında iz bırakmaz, sayaç gerçek trafiği gösterir.
 func (l *Limiter) Release(ip string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -89,7 +91,7 @@ func (l *Limiter) Cleanup() {
 	}
 }
 
-// Size, map'teki IP sayısıdır.
+// Size, testler için map'teki IP sayısıdır.
 func (l *Limiter) Size() int {
 	l.mu.Lock()
 	defer l.mu.Unlock()

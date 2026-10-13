@@ -7,6 +7,8 @@ services:
       PORT: "8080"
       DATABASE_URL: "postgres://opadm:opadm@db:5432/opadm?sslmode=disable"
       TRUST_PROXY: "1" # compose'da proxy arkası varsayılır; doğrudan exposure'da 0 bırak
+      SESSION_SECURE: "0" # http://localhost: çerez Secure olmamalı; Vercel'de 1
+      APP_VERSION: "${APP_VERSION:-compose}" # canlıdaki kod: APP_VERSION=$(git rev-parse --short HEAD) docker compose up -d --build
     depends_on:
       db:
         condition: service_healthy
