@@ -22,7 +22,9 @@ function paintStatus(data) {
   $("st-go").textContent = String(data.go || "—");
   $("st-rt").textContent = String(data.goroutines) + " / " + String(data.cpu);
   $("st-mem").textContent = String(data.mem_alloc_mb);
-  $("st-ver").textContent = String(data.version || "—");
+  const ver = String(data.version || "dev");
+  if ($("st-ver")) $("st-ver").textContent = ver;
+  if ($("st-ver-badge")) $("st-ver-badge").textContent = ver;
 }
 
 // Servis metrikleri: ürünün iş değerini gösteren canlı sayılar.

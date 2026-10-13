@@ -367,27 +367,44 @@ nav a:hover {
   background: var(--surface-hover);
 }
 
+.nav-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 0.25rem;
+}
+
 .theme-btn {
   width: 36px;
   height: 36px;
   border-radius: var(--r-sm);
   cursor: pointer;
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--surface);
   color: var(--muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.95rem;
-  line-height: 1;
+  padding: 0;
   transition: all 0.15s ease;
   margin-left: 0.25rem;
+}
+
+.theme-btn svg {
+  display: block;
+  color: currentColor;
+  transition: transform 0.2s ease;
 }
 
 .theme-btn:hover {
   color: var(--fg);
   border-color: var(--border-strong);
-  background: var(--chip-bg);
+  background: var(--surface-hover);
+}
+
+.theme-btn:hover svg {
+  transform: rotate(15deg);
 }
 
 /* ==========================================================================
@@ -1059,8 +1076,63 @@ textarea {
   transform: translateY(-1px);
 }
 
+.btn-outline {
+  border-color: var(--border);
+  color: var(--fg);
+  background: transparent;
+}
+
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-tint);
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+  border-radius: var(--r-sm);
+  min-height: 36px;
+}
+
 .btn-block {
   width: 100%;
+}
+
+/* Panel Navigation & User Status Pill */
+.panel-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.user-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 0.25rem 0.65rem;
+  min-height: 36px;
+}
+
+.user-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+}
+
+.user-pill-group #panel-user {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--fg);
+  font-weight: 500;
 }
 
 /* Smooth Spinner / Disabled Loading Transition */
@@ -1094,9 +1166,43 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 1.25rem;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 1.25rem;
+}
+
+.status-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.status-title-row h2 {
+  margin: 0;
+}
+
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--r-sm);
+}
+
+.version-badge strong {
+  color: var(--fg);
+}
+
+.status-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .live-badge {
@@ -1210,14 +1316,28 @@ textarea {
   letter-spacing: -0.02em;
 }
 
+.status-grid-balanced {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 640px) {
+  .status-grid-balanced {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 .status-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
-  margin-top: 1.5rem;
-  padding-top: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--border-subtle);
+}
+
+.status-actions:empty {
+  display: none;
 }
 
 #status-msg, #demo-msg, #account-msg {
@@ -1226,6 +1346,8 @@ textarea {
   font-family: var(--mono);
   margin: 0;
   min-height: 1.5em;
+  display: flex;
+  align-items: center;
 }
 
 #panel-user {

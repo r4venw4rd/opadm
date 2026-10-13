@@ -24,10 +24,13 @@
 
 <header class="wrap site-header">
   <p class="brand"><a href="/" aria-label="opadm ana sayfa"><span class="brand-mark" aria-hidden="true">$</span> opadm</a></p>
-  <nav aria-label="Sayfa bölümleri">
-    <span id="panel-user" role="status" aria-live="polite"></span>
-    <button class="btn btn-ghost" type="button" id="logout-btn">Çıkış yap</button>
-    <button class="theme-btn" type="button" id="theme-btn" aria-label="Açık temaya geç">☾</button>
+  <nav aria-label="Sayfa bölümleri" class="panel-nav">
+    <div class="user-pill-group">
+      <span class="user-status-dot" aria-hidden="true"></span>
+      <span id="panel-user" role="status" aria-live="polite"></span>
+    </div>
+    <button class="btn btn-ghost btn-sm" type="button" id="logout-btn">Çıkış yap</button>
+    <button class="theme-btn" type="button" id="theme-btn" aria-label="Açık temaya geç"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
   </nav>
 </header>
 
@@ -40,13 +43,19 @@
   <section id="durum" aria-labelledby="status-heading">
     <div class="status-head">
       <div>
-        <h2 id="status-heading">Canlı Sistem Durumu</h2>
+        <div class="status-title-row">
+          <h2 id="status-heading">Canlı Sistem Durumu</h2>
+          <span class="version-badge"><span class="unit">sürüm:</span> <strong id="st-ver-badge">dev</strong></span>
+        </div>
         <p class="sec-sub" style="margin-bottom: 0;">WebSocket (/api/live) aktifse anlık veri akar; kapalıysa butonla tetiklenir.</p>
       </div>
-      <p class="live-badge"><span class="pulse" aria-hidden="true"></span> WS_ACTIVE</p>
+      <div class="status-head-actions">
+        <p class="live-badge"><span class="pulse" aria-hidden="true"></span> WS_ACTIVE</p>
+        <button class="btn btn-outline btn-sm" type="button" id="status-btn">Durumu yenile</button>
+      </div>
     </div>
     <div class="status-panel">
-      <dl class="status-grid">
+      <dl class="status-grid status-grid-balanced">
         <div><dt>Sunucu saati <span class="unit">UTC</span></dt><dd id="st-time">—</dd></div>
         <div><dt>Çalışma süresi <span class="unit">sn</span></dt><dd id="st-uptime">—</dd></div>
         <div><dt>Toplam kayıt</dt><dd id="st-total">—</dd></div>
@@ -55,10 +64,9 @@
         <div><dt>Go sürümü</dt><dd id="st-go">—</dd></div>
         <div><dt>Goroutine / CPU</dt><dd id="st-rt">—</dd></div>
         <div><dt>Bellek <span class="unit">MB</span></dt><dd id="st-mem">—</dd></div>
-        <div><dt>Sürüm</dt><dd id="st-ver">—</dd></div>
       </dl>
-      <div class="status-actions">
-        <button class="btn btn-primary" type="button" id="status-btn">Durumu yenile</button>
+      <input type="hidden" id="st-ver" value="dev">
+      <div class="status-actions" id="status-actions-bar">
         <p id="status-msg" role="status" aria-live="polite"></p>
       </div>
     </div>
