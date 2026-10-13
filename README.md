@@ -61,6 +61,7 @@ psql 'postgres://opadm:opadm@localhost:5432/opadm?sslmode=disable' \
 | DATABASE_URL    | (yok)      | Postgres bağlantısı; yoksa program açılmaz                 |
 | SIMPLE_PROTOCOL | 0          | `1`: simple protocol (Supabase pooler transaction mode'da şart) |
 | TRUST_PROXY     | 0          | `1` ise proxy başlıklarına güven (Vercel/tunnel arkası)    |
+| SESSION_SECURE  | 0          | `1` çereze Secure ekler (HTTPS; Vercel'de 1, yerelde 0)    |
 | PORT            | 8080       | Dinlenecek port (yalnızca binary; Vercel'de geçersiz)      |
 
 `.env.example` şablondur; gerçek değerler `.env`'de (repoya girmez) ve
@@ -81,7 +82,8 @@ e-posta normalize), geçersiz e-posta (400 + kayıt yok), alan uzunlukları,
 geçersiz service, bilinmeyen alan / yanlış Content-Type (415) / 16 KB üstü
 body, DB arızası (500, başarı yok), rate limit (429), yabancı Origin (403),
 TRUST_PROXY kapalı/açık, limiter temizliği, `/healthz`, `/api/status` (sayaç 0→1),
-`/api/demo` (6 check geçer, yazma/kota yok). Domain ve application katmanlarının
+`/api/demo` (6 check geçer, yazma/kota yok; girişli),
+üyelik akışı (201/409/401/me/logout/demo-kapısı). Domain ve application katmanlarının
 ayrı testleri var (Validate/Normalize/AllowedOrigin, Submit/RunDemo/Snapshot).
 
 ## Deploy: Supabase + Vercel (kullanıcı yapacak)
@@ -93,7 +95,7 @@ Kimlik bilgisi bende yok; adımlar kullanıcının çalıştıracağı şekilde:
 #    supabase/migrations/001_create_requests.sql içeriğini çalıştır.
 #    Project Settings > Database > Connection string (pooler, 6543) + şifreyi al.
 # 2. Vercel: import repo > Environment Variables:
-#    DATABASE_URL=<pooler string>, SIMPLE_PROTOCOL=1, TRUST_PROXY=1
+#    DATABASE_URL=<pooler string>, SIMPLE_PROTOCOL=1, TRUST_PROXY=1, SESSION_SECURE=1
 #    Deploy. Statik site web/'den, fonksiyonlar api/'den otomatik gelir.
 # 3. Canlı doğrulama:
 #    a. Canlı URL'den formu gönder → başarı mesajı + "Canlı durum" sayacı +1
@@ -104,6 +106,15 @@ Kimlik bilgisi bende yok; adımlar kullanıcının çalıştıracağı şekilde:
 Alternatif (yerel/ev sunucusu): `docker compose up -d --build` — app +
 postgres birlikte ayağa kalkar. `opadm.service` systemd örneği de duruyor
 (`DATABASE_URL` doldurularak kullanılır).
+
+## Üyelik (işveren demosu için)
+
+`POST /api/auth/signup` `{email, password}` → 201 (kayıtlıysa 409) ·
+`POST /api/auth/login` → 200 + HttpOnly çerez (yanlışsa 401, hangisi söylenmez) ·
+`GET /api/auth/me` → `{ok:true, email}` ya da 401 ·
+`POST /api/auth/logout` → 200 + çerez silinir.
+Parola yalnız bcrypt özeti durur; oturum jetonunun DB'de yalnız SHA-256 özeti
+durur (7 gün); ölü oturumlar saatte bir süpürülür. Demo endpoint'i giriş ister.
 
 ## API sözleşmesi
 
@@ -129,8 +140,8 @@ postgres birlikte ayağa kalkar. `opadm.service` systemd örneği de duruyor
  "host":"a1b2c3d4e5f6","in_docker":true,"go":"go1.26.0","goroutines":5,"cpu":24,"mem_alloc_mb":3}
 ```
 
-`GET /api/demo` → özellikleri canlı dener; DB'ye yazmaz, kota yakmaz.
-Sayfadaki "Canlı demo" bölümü buradan beslenir:
+`GET /api/demo` → **giriş ister** (çerez yoksa 401). Özellikleri canlı dener;
+DB'ye yazmaz, kota yakmaz. Sayfadaki "Canlı demo" bölümü buradan beslenir:
 
 ```jsonc
 {"ok":true,"checks":[
@@ -151,7 +162,8 @@ DB tarafında aynı kurallar CHECK constraint olarak da var (ikinci savunma).
 - Başarı yalnızca INSERT commit sonrası 201; DB hatasında 500 + genel mesaj, iç detay sızdırılmaz.
 - Başlıklar: CSP (same-origin), X-Content-Type-Options, X-Frame-Options DENY, Referrer-Policy.
 - Sunucu timeout'ları (binary'de); panic recovery middleware.
-- Rate limit: IP başına 10 istek/dakika, instance-içi in-memory (Vercel'de instance başına).
+- Rate limit: IP başına 10 istek/dakika, instance-içi in-memory (Vercel'de instance başına). Üyelik/giriş de aynı limitin arkasında (kaba kuvvet freni; bcrypt zaten ~100ms).
+- Üyelik: parola bcrypt özeti, jetonun DB'de SHA-256 özeti, HttpOnly + SameSite=Lax çerez (Secure Vercel'de), 7 gün ömür, giriş hatasında oracle yok.
 - Supabase'te RLS açık, anon politikası yok: yazma yalnızca service_role anahtarlı backend'den.
 - Secret'lar repoda yok (`.env` gitignore'da); kayıt listeleme endpoint'i yok; DOM'a hep `textContent`.
 - Pooler transaction mode + simple protocol: prepare'sız sorgu, havuz dostu.

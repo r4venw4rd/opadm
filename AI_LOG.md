@@ -20,9 +20,10 @@
   supabase olacak"). Son karar brief'in Go+SQLite şartından bilinçli sapmadır;
   AI önce brief'e bağlı kalmayı savundu (gerekçesi raporda), kullanıcı ısrar
   edince uyguladı. Ayrıca **DDD + canlı demo** ("mimari ddd'den aşağısı kurtarmaz",
-  "live'daki app özelliklerimiz var desin, demo liveda olacak").
-- **AI yazdı:** `main.go`, `internal/{store,handler,ratelimit}`, testler,
-  `web/{index.html,app.js,style.css}`, Dockerfile/compose/systemd, README, bu dosya.
+  "live'daki app özelliklerimiz var desin, demo liveda olacak") ve **üyelik**
+  ("tanıtım sitesinde üye ol, giriş yap; girişten sonra fonkları test etsinler").
+- **AI yazdı:** `main.go`, `api/*/handler.go`, `internal/{domain,application,infrastructure/...}`,
+  testler, `web/{index.html,app.js,style.css}`, migration'lar, Dockerfile/compose/systemd/vercel.json, README, bu dosya.
 - **Kullanıcı seçimi/kararı bu oturumda ayrıca istenmedi** (brief "sormadan makul
   varsay" diyordu); doldurulması gereken alanlar README'de `TODO(kullanıcı)` olarak
   açık bırakıldı (canlı URL, aktif emek süresi).
@@ -91,6 +92,10 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
   application (Submit/Snapshot/RunDemo) + infrastructure (http/postgres/ratelimit);
   handler ince adaptör. `/api/demo` + sayfada "Canlı demo" bölümü: 6 check canlı
   koşar, yazma/kota yok. `go vet` + `go test -race` yeşil (domain/app/http/pg-skip/ratelimit).
+- DDD geçişi (domain/application/infrastructure, ince http adaptörü) + `/api/demo`
+  (6 check, yazma/kota yok) + üyelik (bcrypt, jeton özeti, HttpOnly çerez, giriş
+  arkası demo). Testler: TestAuth + TestAuthFlow (201/409/400/401/me/logout).
+  `go vet` + `go test -race` yeşil.
 - "Canlı durum" demosu (`GET /api/status` + sayfada sayaç bölümü) **kullanıcı
   fikri** ("docker üzerinden reel demo, sistem bilgileri çeken demomsu şey").
   Kişisel veri dönmez (uptime, saat, toplam kayıt); form başarısı sayacı

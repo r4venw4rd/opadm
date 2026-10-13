@@ -60,6 +60,10 @@ func main() {
 	mux.HandleFunc("GET /healthz", app.Health)
 	mux.HandleFunc("GET /api/status", app.Status)
 	mux.HandleFunc("GET /api/demo", app.Demo)
+	mux.HandleFunc("POST /api/auth/signup", app.Signup)
+	mux.HandleFunc("POST /api/auth/login", app.Login)
+	mux.HandleFunc("POST /api/auth/logout", app.Logout)
+	mux.HandleFunc("GET /api/auth/me", app.Me)
 
 	// Gömülü statik dosyalar (tek binary).
 	web, _ := fs.Sub(webFS, "web")

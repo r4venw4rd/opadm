@@ -2,9 +2,12 @@ package postgres
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+
+	"opadm/internal/domain"
 )
 
 // Store, taleplerin Postgres (Supabase) kalıcılığıdır.
@@ -59,3 +62,74 @@ func (s *Store) Count() (int, error) {
 }
 
 func (s *Store) Close() error { return s.db.Close() }
+
+// CreateUser, üyelik açar. E-posta çakışırsa unique index hatası döner;
+// çağıran (Signup) önce FindUserByEmail ile bakar, yarışta bu hatayı
+// da çakışma sayar.
+func (s *Store) CreateUser(email, passwordHash string) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(
+		`INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id`,
+		email, passwordHash,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// FindUserByEmail, giriş için kimlik + parola özetini döner.
+// Yoksa domain.ErrNotFound (istemciye "hangisi yanlış" denmez).
+func (s *Store) FindUserByEmail(email string) (int64, string, error) {
+	var id int64
+	var hash string
+	err := s.db.QueryRow(
+		`SELECT id, password_hash FROM users WHERE lower(email) = lower($1)`,
+		email,
+	).Scan(&id, &hash)
+	if err == sql.ErrNoRows {
+		return 0, "", domain.ErrNotFound
+	}
+	if err != nil {
+		return 0, "", err
+	}
+	return id, hash, nil
+}
+
+// CreateSession, oturum açar. Ham jeton değil özeti saklanır.
+func (s *Store) CreateSession(userID int64, tokenHash string, expiresAt time.Time) error {
+	_, err := s.db.Exec(
+		`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
+		tokenHash, userID, expiresAt,
+	)
+	return err
+}
+
+// FindSessionUser, süresi geçmemiş oturumun e-postasını döner.
+func (s *Store) FindSessionUser(tokenHash string) (string, error) {
+	var email string
+	err := s.db.QueryRow(
+		`SELECT u.email FROM sessions s JOIN users u ON u.id = s.user_id
+		 WHERE s.token_hash = $1 AND s.expires_at > now()`,
+		tokenHash,
+	).Scan(&email)
+	if err == sql.ErrNoRows {
+		return "", domain.ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return email, nil
+}
+
+// DeleteSession, çıkıştır. Olmayan jeton hata değildir.
+func (s *Store) DeleteSession(tokenHash string) error {
+	_, err := s.db.Exec(`DELETE FROM sessions WHERE token_hash = $1`, tokenHash)
+	return err
+}
+
+// DeleteExpiredSessions, janitor süpürür (saatte bir).
+func (s *Store) DeleteExpiredSessions() error {
+	_, err := s.db.Exec(`DELETE FROM sessions WHERE expires_at <= now()`)
+	return err
+}

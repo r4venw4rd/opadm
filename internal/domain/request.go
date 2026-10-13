@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"net/mail"
 	"net/url"
 	"strings"
 )
@@ -30,8 +29,8 @@ func (r *Request) Validate() map[string]string {
 	}
 	if len(r.Email) > 254 {
 		errs["email"] = "E-posta en fazla 254 karakter olmalı."
-	} else if _, err := mail.ParseAddress(r.Email); err != nil || !strings.Contains(r.Email, ".") {
-		errs["email"] = "Geçerli bir e-posta adresi yazın."
+	} else if msg := CheckEmail(r.Email); msg != "" {
+		errs["email"] = msg
 	}
 	switch r.Service {
 	case "backup", "monitoring", "hardening":

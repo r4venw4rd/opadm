@@ -13,11 +13,12 @@ import (
 // HTTP ve DB detayları dışarıda; burada yalnız iş kuralları + orkestrasyon.
 type Service struct {
 	Repo    domain.Repository
+	Auth    domain.AuthStore
 	Started time.Time
 }
 
-func New(repo domain.Repository, started time.Time) *Service {
-	return &Service{Repo: repo, Started: started}
+func New(repo domain.Repository, auth domain.AuthStore, started time.Time) *Service {
+	return &Service{Repo: repo, Auth: auth, Started: started}
 }
 
 // Ping, /healthz için DB'ye gerçekten dokunur.

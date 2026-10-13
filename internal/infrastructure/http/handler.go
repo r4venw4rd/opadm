@@ -30,6 +30,9 @@ type App struct {
 	// Yalnızca başlıkları ezen bir proxy (Vercel, Cloudflare Tunnel) arkasında
 	// TRUST_PROXY=1 ile açılır (bkz. README).
 	TrustProxy bool
+	// SecureCookies=1 (Vercel/HTTPS) çereze Secure ekler; yerelde 0 kalır
+	// yoksa tarayıcı http:// üzerinde çerezi saklamaz.
+	SecureCookies bool
 }
 
 func New(svc *application.Service, l *ratelimit.Limiter, trustProxy bool) *App {
@@ -50,8 +53,17 @@ func NewFromEnv() (*App, error) {
 	limiter := ratelimit.New(10, time.Minute)
 	never := make(chan struct{}) // süreç ömrü: janitor kapanmaz
 	go limiter.StartJanitor(5*time.Minute, never)
-	svc := application.New(st, time.Now())
-	return New(svc, limiter, os.Getenv("TRUST_PROXY") == "1"), nil
+	go func() { // ölü oturum süpürme (saatte bir; hata sessiz geçilir)
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for range t.C {
+			_ = st.DeleteExpiredSessions()
+		}
+	}()
+	svc := application.New(st, st, time.Now())
+	app := New(svc, limiter, os.Getenv("TRUST_PROXY") == "1")
+	app.SecureCookies = os.Getenv("SESSION_SECURE") == "1"
+	return app, nil
 }
 
 // requestInput, HTTP gövdesinin DTO'sudur; domain.Request'e çevrilir.
@@ -96,36 +108,54 @@ func hashIP(ip string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Create, POST /api/requests. Başarı SADECE INSERT commit edildikten
-// sonra 201 ile bildirilir; DB hatasında 500 + genel mesaj döner.
-func (a *App) Create(w http.ResponseWriter, r *http.Request) {
+// guard, yazan endpoint'lerin ortak kapısıdır: JSON zarfı + Origin +
+// hız limiti. Başarısızsa yanıtı yazar, ok=false döner.
+func (a *App) guard(w http.ResponseWriter, r *http.Request) (ip string, ok bool) {
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{
 			"ok": false, "error": "Content-Type application/json olmalı.",
 		})
-		return
+		return "", false
 	}
-	ip := clientIP(r, a.TrustProxy)
+	ip = clientIP(r, a.TrustProxy)
 	if !domain.AllowedOrigin(r.Host, r.Header.Get("Origin"), r.Header.Get("Referer")) {
 		writeJSON(w, http.StatusForbidden, map[string]any{
 			"ok": false, "error": "Geçersiz istek kaynağı.",
 		})
-		return
+		return "", false
 	}
 	if !a.Limiter.Allow(ip) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]any{
 			"ok": false, "error": "Çok fazla istek gönderdiniz. Bir dakika sonra tekrar deneyin.",
 		})
-		return
+		return "", false
 	}
+	return ip, true
+}
+
+// decode, gövdeyi okur; bozuksa 400 yazar.
+func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
-	var in requestInput
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields() // bilinmeyen alan = 400, şema kaymasını erken yakalar
-	if err := dec.Decode(&in); err != nil {
+	if err := dec.Decode(v); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"ok": false, "error": "Geçersiz istek gövdesi. Tüm alanları kontrol edip tekrar deneyin.",
 		})
+		return false
+	}
+	return true
+}
+
+// Create, POST /api/requests. Başarı SADECE INSERT commit edildikten
+// sonra 201 ile bildirilir; DB hatasında 500 + genel mesaj döner.
+func (a *App) Create(w http.ResponseWriter, r *http.Request) {
+	ip, ok := a.guard(w, r)
+	if !ok {
+		return
+	}
+	var in requestInput
+	if !decode(w, r, &in) {
 		return
 	}
 	_, fieldErrs, err := a.Service.Submit(domain.Request{
@@ -168,9 +198,15 @@ func (a *App) Status(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Demo, GET /api/demo. Özellikleri canlı sistemde dener; DB'ye yazmaz,
-// kota yakmaz. Her check gerçekten koşar, sahte yeşil yok.
+// Demo, GET /api/demo. Giriş ister: işveren üye olup girer, özellikleri
+// canlı dener. DB'ye yazmaz, kota yakmaz. Her check gerçekten koşar.
 func (a *App) Demo(w http.ResponseWriter, r *http.Request) {
+	if _, ok, _ := a.currentUser(r); !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{
+			"ok": false, "error": "Demo için giriş yapın.",
+		})
+		return
+	}
 	checks := a.Service.RunDemo(a.Limiter)
 	out := make([]map[string]any, 0, len(checks))
 	for _, c := range checks {

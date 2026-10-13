@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script>try{var t=localStorage.getItem("opadm-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <script src="/app.js" defer></script>
 </head>
 <body>
@@ -21,8 +23,10 @@
     <a href="#hizmetler">Hizmetler</a>
     <a href="#nasil">Nasıl çalışır</a>
     <a href="#durum">Canlı durum</a>
+    <a href="#hesap">Hesap</a>
     <a href="#demo">Demo</a>
     <a class="nav-cta" href="#talep">Talep oluştur</a>
+    <button class="theme-btn" type="button" id="theme-btn" aria-label="Açık temaya geç">☾</button>
   </nav>
 </header>
 
@@ -146,9 +150,51 @@ uptime  disk  svc  <span class="t-green">OK OK OK</span>
     </div>
   </section>
 
+  <section id="hesap" aria-labelledby="account-heading">
+    <h2 id="account-heading">Hesap</h2>
+    <p class="sec-sub">Demo ve test özelliklerini denemek için üye olun, giriş yapın.</p>
+    <div class="status-panel" id="account-logged-out">
+      <div class="auth-grid">
+        <form id="signup-form" novalidate>
+          <h3>Üye ol</h3>
+          <div class="field">
+            <label for="su-email">E-posta</label>
+            <input id="su-email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="su-err">
+          </div>
+          <div class="field">
+            <label for="su-pass">Parola (8-128 karakter)</label>
+            <input id="su-pass" type="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="su-err">
+          </div>
+          <p class="err" id="su-err" hidden></p>
+          <button class="btn btn-primary" type="submit" id="signup-btn">Üye ol</button>
+        </form>
+        <form id="login-form" novalidate>
+          <h3>Giriş yap</h3>
+          <div class="field">
+            <label for="li-email">E-posta</label>
+            <input id="li-email" type="email" inputmode="email" autocomplete="email" required maxlength="254" aria-describedby="li-err">
+          </div>
+          <div class="field">
+            <label for="li-pass">Parola</label>
+            <input id="li-pass" type="password" autocomplete="current-password" required aria-describedby="li-err">
+          </div>
+          <p class="err" id="li-err" hidden></p>
+          <button class="btn btn-primary" type="submit" id="login-btn">Giriş yap</button>
+        </form>
+      </div>
+    </div>
+    <div class="status-panel" id="account-logged-in" hidden>
+      <p>Giriş yapıldı: <strong id="account-email"></strong></p>
+      <div class="status-actions">
+        <button class="btn" type="button" id="logout-btn">Çıkış yap</button>
+      </div>
+    </div>
+    <p id="account-msg" role="status" aria-live="polite"></p>
+  </section>
+
   <section id="demo" aria-labelledby="demo-heading">
     <h2 id="demo-heading">Canlı demo: özelliklerimiz</h2>
-    <p class="sec-sub">Aşağıdaki testler bu sunucuda gerçekten koşar; DB'ye yazılmaz, kota yakılmaz.</p>
+    <p class="sec-sub">Aşağıdaki testler bu sunucuda gerçekten koşar; DB'ye yazılmaz, kota yakılmaz. Demo giriş ister.</p>
     <div class="status-panel">
       <ul id="demo-list" class="demo-list">
         <li>Henüz çalıştırılmadı — düğmeye basın.</li>
@@ -172,6 +218,10 @@ uptime  disk  svc  <span class="t-green">OK OK OK</span>
         </ul>
       </div>
       <form id="request-form" action="/api/requests" method="post" novalidate aria-describedby="form-desc">
+        <div class="form-errors" id="form-errors" role="alert" tabindex="-1" hidden aria-labelledby="form-errors-title">
+          <h3 id="form-errors-title">Formda hata var</h3>
+          <ul id="form-errors-list"></ul>
+        </div>
         <div class="field">
           <label for="name">Adınız</label>
           <input id="name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="80" aria-describedby="name-err" placeholder="Adınız Soyadınız">
