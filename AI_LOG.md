@@ -70,9 +70,11 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
 - Docker build hatası (kullanıcı bildirdi): `go.mod requires go >= 1.26.0` ama
   Dockerfile'da `golang:1.23-alpine` vardı → `golang:1.26-alpine` yapıldı; ayrıca
   `.dockerignore` eklendi ve `/data` dizini nonroot'a chown'landı (named volume
-  root-owned gelir, yoksa nonroot DB'yi açamaz). Bu oturumda Docker daemon'a
-  erişim yoktu (soket `root:docker`, şifresiz sudo yok); imaj build + compose
-  doğrulaması kullanıcıya kaldı, sonucu buraya işlenmedi.
+  root-owned gelir, yoksa nonroot DB'yi açamaz). İkinci denemede run stage'deki
+  `RUN` distroless'ta shell olmadığı için patladı (`/bin/sh` yok) → `mkdir/chown`
+  builder stage'e taşındı, `--chown=65532:65532` ile kopyalandı. İmaj build,
+  compose up, `201` kaydı ve restart sonrası kalıcılık kullanıcı tarafından
+  doğrulandı (yeşil; volume'da `id=1` kaydı görüldü).
 - Başka hata bulunamadı. Test senaryoları ilk çalışmada geçti; "düzelttim" hikayesi
   uydurulmadı. DB-hatası (500, başarı yok) ve rate limit (429) davranışları test +
   kod incelemesiyle doğrulandı.
