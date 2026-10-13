@@ -25,7 +25,7 @@ func newTestAppTrust(t *testing.T, max int, trustProxy bool) *App {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	return New(st, ratelimit.New(max, time.Minute), trustProxy)
+	return New(st, ratelimit.New(max, time.Minute), trustProxy, time.Now())
 }
 
 func postJSON(t *testing.T, app *App, body string, ctype string) *httptest.ResponseRecorder {
@@ -219,5 +219,30 @@ func TestTrustProxyDefaultOff(t *testing.T) {
 	}
 	if got := clientIP(req, true); got != "6.6.6.6" {
 		t.Fatalf("trust açıkken clientIP = %q, istendi 6.6.6.6", got)
+	}
+}
+
+func TestStatus(t *testing.T) {
+	app := newTestApp(t, 100)
+	get := func() (int, map[string]any) {
+		req := httptest.NewRequest("GET", "/api/status", nil)
+		rec := httptest.NewRecorder()
+		app.Status(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	code, out := get()
+	if code != 200 || out["ok"] != true || out["requests_total"] != float64(0) {
+		t.Fatalf("boş status bekleniyordu: %d %v", code, out)
+	}
+	if _, ok := out["uptime_s"]; !ok {
+		t.Fatalf("uptime_s yok: %v", out)
+	}
+	if rec := postJSON(t, app, validBody(), "application/json"); rec.Code != 201 {
+		t.Fatalf("kayıt 201 bekleniyordu: %d", rec.Code)
+	}
+	if code, out := get(); code != 200 || out["requests_total"] != float64(1) {
+		t.Fatalf("kayıt sonrası total=1 bekleniyordu: %d %v", code, out)
 	}
 }

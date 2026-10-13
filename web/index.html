@@ -15,6 +15,7 @@
   <nav aria-label="Sayfa bölümleri">
     <a href="#hizmetler">Hizmetler</a>
     <a href="#nasil">Nasıl çalışır</a>
+    <a href="#durum">Canlı durum</a>
     <a href="#talep">Talep formu</a>
   </nav>
 </header>
@@ -60,6 +61,18 @@
       <li><strong>2. Keşif görüşmesi:</strong> Ücretsiz, 30 dakikalık çevrimiçi görüşme.</li>
       <li><strong>3. Kurulum:</strong> Birlikte kararlaştırdığımız kapsamı kurarız.</li>
     </ol>
+  </section>
+
+  <section id="durum" aria-labelledby="status-heading">
+    <h2 id="status-heading">Canlı durum</h2>
+    <p>Bu sayfa çalışan sunucudan beslenir. Formu gönderip sayacı artırabilirsiniz.</p>
+    <dl>
+      <div><dt>Sunucu saati (UTC)</dt><dd id="st-time">—</dd></div>
+      <div><dt>Çalışma süresi (sn)</dt><dd id="st-uptime">—</dd></div>
+      <div><dt>Toplam kayıt</dt><dd id="st-total">—</dd></div>
+    </dl>
+    <button class="btn" type="button" id="status-btn">Durumu yenile</button>
+    <p id="status-msg" role="status" aria-live="polite"></p>
   </section>
 
   <section id="talep" aria-labelledby="form-heading">

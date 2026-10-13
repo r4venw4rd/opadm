@@ -41,6 +41,31 @@ function validate(values) {
 document.addEventListener("DOMContentLoaded", () => {
   const form = $("request-form");
   const btn = $("submit-btn");
+  const statusBtn = $("status-btn");
+
+  async function refreshStatus() {
+    const msg = $("status-msg");
+    statusBtn.disabled = true;
+    try {
+      const res = await fetch("/api/status");
+      const data = await res.json();
+      if (res.ok && data.ok === true) {
+        // Sayılar textContent ile basılır; sunucudan HTML gelmez.
+        $("st-time").textContent = String(data.time);
+        $("st-uptime").textContent = String(data.uptime_s);
+        $("st-total").textContent = String(data.requests_total);
+        msg.textContent = "";
+      } else {
+        msg.textContent = "Durum alınamadı.";
+      }
+    } catch {
+      msg.textContent = "Durum alınamadı: bağlantınızı kontrol edin.";
+    } finally {
+      statusBtn.disabled = false;
+    }
+  }
+  statusBtn.addEventListener("click", refreshStatus);
+  refreshStatus(); // açılışta bir kez doldur
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -82,6 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (res.status === 201 && data.ok === true) {
         status("Talebiniz alındı. Ortalama 2 iş günü içinde dönüş yaparız.", "ok");
         form.reset();
+        refreshStatus(); // demoda sayaç artar görünür
       } else if (res.status === 400 && data.errors) {
         fields.forEach((f) => setErr(f, (data.errors || {})[f] || ""));
         const first = fields.find((f) => (data.errors || {})[f]);

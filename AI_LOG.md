@@ -81,6 +81,10 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
   listelemeyi yasaklıyor, PII riski), e-posta onayı (SMTP altyapısı ister),
   MX kontrolü (DNS'e bağımlı, fail-open anlamsız olurdu). `go vet` + `go test
   -race` yeşil (handler 11 + ratelimit 2 test).
+- "Canlı durum" demosu (`GET /api/status` + sayfada sayaç bölümü) **kullanıcı
+  fikri** ("docker üzerinden reel demo, sistem bilgileri çeken demomsu şey").
+  Kişisel veri dönmez (uptime, saat, toplam kayıt); form başarısı sayacı
+  artırır. curl ile doğrulandı: `requests_total` 0→1, bölüm HTML'de mevcut.
 - Başka hata bulunamadı. Test senaryoları ilk çalışmada geçti; "düzelttim" hikayesi
   uydurulmadı. DB-hatası (500, başarı yok) ve rate limit (429) davranışları test +
   kod incelemesiyle doğrulandı.

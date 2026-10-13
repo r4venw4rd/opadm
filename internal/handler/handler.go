@@ -9,6 +9,7 @@ import (
 	"net/mail"
 	"net/url"
 	"strings"
+	"time"
 
 	"opadm/internal/ratelimit"
 	"opadm/internal/store"
@@ -24,10 +25,12 @@ type App struct {
 	// Yalnızca Cloudflare Tunnel gibi başlıkları ezen bir proxy arkasındayken
 	// TRUST_PROXY=1 ile açılır (bkz. README).
 	TrustProxy bool
+	// Started, /api/status'teki çalışma süresinin başlangıcıdır.
+	Started time.Time
 }
 
-func New(s *store.Store, l *ratelimit.Limiter, trustProxy bool) *App {
-	return &App{Store: s, Limiter: l, TrustProxy: trustProxy}
+func New(s *store.Store, l *ratelimit.Limiter, trustProxy bool, started time.Time) *App {
+	return &App{Store: s, Limiter: l, TrustProxy: trustProxy, Started: started}
 }
 
 // request, forma birebir uyar; bilinmeyen alan json.Decoder ile reddedilir.
@@ -167,6 +170,22 @@ func (a *App) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"ok": true})
+}
+
+// Status, GET /api/status. Kişisel veri içermez; yalnızca canlılık ve
+// sayaç verir. Demoda "formu gönder → sayıyı artar gör" döngüsü için.
+func (a *App) Status(w http.ResponseWriter, r *http.Request) {
+	n, err := a.Store.Count()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":             true,
+		"time":           time.Now().UTC().Format(time.RFC3339),
+		"uptime_s":       int64(time.Since(a.Started).Seconds()),
+		"requests_total": n,
+	})
 }
 
 // Health, GET /healthz. DB'ye ping atar; DB kapalıysa 500 verir.

@@ -58,7 +58,8 @@ Kapsananlar: geçerli kayıt (201 + DB'de var), geçersiz e-posta (400 + kayıt 
 alan uzunlukları (400 + alan adı), geçersiz service, bilinmeyen alan / yanlış
 Content-Type (415) / 16 KB üstü body (4xx), kapalı DB (500, başarı yok),
 rate limit (429), yabancı Origin (403), TRUST_PROXY kapalı/açık IP seçimi,
-limiter temizliği (janitor), `/healthz` (açık DB 200, kapalı DB 500).
+limiter temizliği (janitor), `/healthz` (açık DB 200, kapalı DB 500),
+`/api/status` (sayaç 0→1).
 
 Elle uçtan uca:
 
@@ -106,6 +107,12 @@ Docker'sız seçenek: `opadm.service` dosyasındaki komutlarla systemd kurulumu.
 ```
 
 `GET /healthz` → `{"ok":true}` (DB ping'i başarısızsa 500).
+
+`GET /api/status` → kişisel veri içermez; sayfadaki "Canlı durum" bölümü buradan beslenir:
+
+```jsonc
+{"ok":true,"time":"2026-10-13T13:52:11Z","uptime_s":1,"requests_total":1}
+```
 
 Kurallar: name 2-80, email regex + ≤254 (küçük harfe normalize), service
 allowlist, message 10-1000. Limit: 16 KB body; bilinmeyen alan reddedilir.

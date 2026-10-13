@@ -65,11 +65,12 @@ func main() {
 	limiter := ratelimit.New(10, time.Minute)
 	never := make(chan struct{}) // süreç ömrü: janitor kapanmaz
 	go limiter.StartJanitor(5*time.Minute, never)
-	app := handler.New(st, limiter, trustProxy)
+	app := handler.New(st, limiter, trustProxy, time.Now())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/requests", app.Create)
 	mux.HandleFunc("GET /healthz", app.Health)
+	mux.HandleFunc("GET /api/status", app.Status)
 
 	// Gömülü statik dosyalar (tek binary).
 	web, _ := fs.Sub(webFS, "web")
