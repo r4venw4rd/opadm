@@ -3,15 +3,61 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"opadm/internal/ratelimit"
-	"opadm/internal/store"
 )
+
+// fakeStore, Store arayüzünün bellek içi karşılığıdır. fail=true iken
+// tüm çağrılar hata döner (DB arızası simülasyonu). `go test` DB'siz koşar.
+type fakeStore struct {
+	mu   sync.Mutex
+	rows []fakeRow
+	fail bool
+}
+
+type fakeRow struct {
+	name, email, service, message, ipHash string
+}
+
+func (f *fakeStore) Insert(name, email, service, message, ipHash string) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fail {
+		return 0, errors.New("db down")
+	}
+	f.rows = append(f.rows, fakeRow{name, email, service, message, ipHash})
+	return int64(len(f.rows)), nil
+}
+
+func (f *fakeStore) Ping() error {
+	if f.fail {
+		return errors.New("db down")
+	}
+	return nil
+}
+
+func (f *fakeStore) Count() (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fail {
+		return 0, errors.New("db down")
+	}
+	return len(f.rows), nil
+}
+
+func (f *fakeStore) Close() error { return nil }
+
+func (f *fakeStore) last() fakeRow {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.rows[len(f.rows)-1]
+}
 
 func newTestApp(t *testing.T, max int) *App {
 	t.Helper()
@@ -20,12 +66,7 @@ func newTestApp(t *testing.T, max int) *App {
 
 func newTestAppTrust(t *testing.T, max int, trustProxy bool) *App {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
-	return New(st, ratelimit.New(max, time.Minute), trustProxy, time.Now())
+	return New(&fakeStore{}, ratelimit.New(max, time.Minute), trustProxy, time.Now())
 }
 
 func postJSON(t *testing.T, app *App, body string, ctype string) *httptest.ResponseRecorder {
@@ -56,6 +97,9 @@ func TestValidInsert(t *testing.T) {
 	n, err := app.Store.Count()
 	if err != nil || n != 1 {
 		t.Fatalf("DB'de 1 kayıt bekleniyordu, n=%d err=%v", n, err)
+	}
+	if got := app.Store.(*fakeStore).last(); got.email != "test@ornek.com" {
+		t.Fatalf("e-posta normalize edilmedi: %q", got.email)
 	}
 }
 
@@ -133,7 +177,7 @@ func TestBadEnvelope(t *testing.T) {
 
 func TestDBFailure(t *testing.T) {
 	app := newTestApp(t, 100)
-	app.Store.Close() // DB'yi boz: INSERT imkansız
+	app.Store.(*fakeStore).fail = true // DB arızası simülasyonu
 	rec := postJSON(t, app, validBody(), "application/json")
 	if rec.Code != 500 {
 		t.Fatalf("kod = %d, istendi 500", rec.Code)
@@ -163,11 +207,11 @@ func TestHealthz(t *testing.T) {
 	if rec.Code != 200 || !bytes.Contains(rec.Body.Bytes(), []byte(`"ok":true`)) {
 		t.Fatalf("healthz 200 bekleniyordu: %d %s", rec.Code, rec.Body.String())
 	}
-	app.Store.Close()
+	app.Store.(*fakeStore).fail = true
 	rec = httptest.NewRecorder()
 	app.Health(rec, req)
 	if rec.Code != 500 {
-		t.Fatalf("kapalı DB'de healthz 500 bekleniyordu: %d", rec.Code)
+		t.Fatalf("bozuk DB'de healthz 500 bekleniyordu: %d", rec.Code)
 	}
 }
 

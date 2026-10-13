@@ -1,20 +1,17 @@
-# Build: CGO'suz (modernc.org/sqlite), statik binary
+# Build: CGO'suz, statik binary (+ Supabase TLS için CA sertifikası)
 FROM golang:1.26-alpine AS build
+RUN apk add --no-cache ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -o /opadm .
-# /data burada hazırlanır: run stage'de shell yok (distroless).
-# 65532 = distroless nonroot kullanıcısı.
-RUN mkdir -p /data && chown 65532:65532 /data
 
-# Run: non-root, volume'da SQLite
+# Run: non-root, DB Supabase'te (dosya yok, volume yok)
 FROM gcr.io/distroless/static-debian12:nonroot
-ENV PORT=8080 DB_PATH=/data/requests.db
-VOLUME /data
+ENV PORT=8080
 EXPOSE 8080
 COPY --from=build /opadm /opadm
-COPY --from=build --chown=65532:65532 /data /data
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 USER nonroot:nonroot
 ENTRYPOINT ["/opadm"]

@@ -4,47 +4,64 @@ Küçük ekipler için sunucu bakım ve yedekleme hizmeti — tek sayfalık tan�
 kalıcı talep formu. Enteksis işe alım değerlendirmesi için kurgusal ürün;
 gerçek talep toplanmaz (footer'da da yazar).
 
-- **Canlı URL:** `TODO(kullanıcı): deploy sonrası doldur` (örn. `https://opadm.ornek.site`)
+- **Canlı URL:** `TODO(kullanıcı): deploy sonrası doldur` (örn. `https://opadm.vercel.app`)
 - **Teslim commit ID:** `git rev-list -n 1 teslim` çıktısı esas alınır; hash ayrıca teslim raporunda bildirilir.
+
+> **Mimari notu (dürüstlük):** Görev brief'i Go + SQLite + tek binary diyordu.
+> Kullanıcı "her sistemde çalışsın, Vercel'e koyalım, DB Supabase olsun" diye
+> karar verdi; mimari buna çevrildi. Sonuç: Go backend (ayni kod) + Supabase
+> Postgres; Vercel'de serverless fonksiyon, yerelde/Docker'da tek binary.
+> `sqlite3` ile kayıt kontrolü adımı Supabase Table Editor / SQL Editor'a dönüştü.
+> Karar kullanıcıdan, sonucu AI_LOG'da.
 
 ## Mimari ve dosya yapısı
 
-Tek Go binary'si, gömülü vanilla frontend, SQLite kalıcılık. Framework yok.
+Go (stdlib) + Supabase Postgres (pgx), vanilla frontend. Framework yok.
 
 ```
-main.go                        PORT/DB_PATH config, mux, timeout, middleware
-internal/store/store.go        SQLite açma, şema, INSERT (parametrik), Ping
-internal/handler/handler.go    POST /api/requests, GET /healthz, doğrulama
-internal/ratelimit/ratelimit.go in-memory IP başına limit (10/dk)
-internal/handler/handler_test.go 8 senaryo (bkz. Test)
-web/index.html, app.js, style.css gömülü statik dosyalar (embed)
-Dockerfile, docker-compose.yml, opadm.service  deploy seçenekleri
+main.go                        yerel/Docker çalıştırma: env, mux, timeout, middleware
+api/requests/ POST /api/requests (Vercel fonksiyonu, aynı handler)
+api/status/    GET /api/status   (Vercel fonksiyonu, aynı handler)
+internal/handler/handler.go    doğrulama, 201/400/403/429/500, NewFromEnv kurulum
+internal/store/store.go        Postgres INSERT (parametrik, RETURNING id), Ping, Count
+internal/ratelimit/            in-memory IP başına limit (10/dk) + janitor
+internal/handler/handler_test.go fake store ile DB'siz testler
+internal/store/store_test.go   TEST_DATABASE_URL varsa entegrasyon, yoksa skip
+web/index.html, app.js, style.css statik frontend (Vercel'de outputDirectory)
+supabase/migrations/001_create_requests.sql  tablo + CHECK + RLS (dashboard'da 1 kez)
+vercel.json, Dockerfile, docker-compose.yml (app + yerel postgres), .env.example
 ```
 
 Akış: form → istemci ön-doğrulama (UX) → `fetch` JSON → sunucu doğrulama →
-SQLite INSERT commit → **yalnızca o zaman 201** → istemci başarıyı gösterir.
+Postgres INSERT commit → **yalnızca o zaman 201** → istemci başarıyı gösterir.
 
 ## Yerel kurulum ve çalıştırma
 
 ```sh
-go build -o opadm .
-PORT=8080 DB_PATH=./data/requests.db ./opadm
+docker compose up -d --build   # app + yerel postgres (migration otomatik)
 # http://localhost:8080
+# ya da binary: DATABASE_URL=... PORT=8080 ./opadm
 ```
 
 Kayıtları görme (public listeleme endpoint'i yok, kişisel veri koruması):
+yerelde `psql`, bulutta Supabase Dashboard > Table Editor.
 
 ```sh
-sqlite3 ./data/requests.db "SELECT id,name,email,service,created_at FROM requests;"
+psql 'postgres://opadm:opadm@localhost:5432/opadm?sslmode=disable' \
+  -c "SELECT id,name,email,service,created_at FROM requests;"
 ```
 
 ## Env değişkenleri
 
-| Ad          | Varsayılan         | Açıklama                                                    |
-|-------------|--------------------|-------------------------------------------------------------|
-| PORT        | 8080               | Dinlenecek port                                             |
-| DB_PATH     | ./data/requests.db | SQLite dosya yolu                                           |
-| TRUST_PROXY | 0                  | `1` ise proxy başlıklarına güven (yalnızca tunnel arkası)   |
+| Ad              | Varsayılan | Açıklama                                                   |
+|-----------------|------------|------------------------------------------------------------|
+| DATABASE_URL    | (yok)      | Postgres bağlantısı; yoksa program açılmaz                 |
+| SIMPLE_PROTOCOL | 0          | `1`: simple protocol (Supabase pooler transaction mode'da şart) |
+| TRUST_PROXY     | 0          | `1` ise proxy başlıklarına güven (Vercel/tunnel arkası)    |
+| PORT            | 8080       | Dinlenecek port (yalnızca binary; Vercel'de geçersiz)      |
+
+`.env.example` şablondur; gerçek değerler `.env`'de (repoya girmez) ve
+Vercel Dashboard > Environment Variables'ta tutulur.
 
 ## Test
 
@@ -52,44 +69,36 @@ sqlite3 ./data/requests.db "SELECT id,name,email,service,created_at FROM request
 go vet ./...
 go test ./...
 go test -race ./...
+# Supabase'e karşı entegrasyon (migration uygulanmış olmalı):
+TEST_DATABASE_URL='postgres://...' SIMPLE_PROTOCOL=1 go test ./internal/store/ -run Integration -v
 ```
 
-Kapsananlar: geçerli kayıt (201 + DB'de var), geçersiz e-posta (400 + kayıt yok),
-alan uzunlukları (400 + alan adı), geçersiz service, bilinmeyen alan / yanlış
-Content-Type (415) / 16 KB üstü body (4xx), kapalı DB (500, başarı yok),
-rate limit (429), yabancı Origin (403), TRUST_PROXY kapalı/açık IP seçimi,
-limiter temizliği (janitor), `/healthz` (açık DB 200, kapalı DB 500),
-`/api/status` (sayaç 0→1).
+Birim testler fake store ile DB'siz koşar: geçerli kayıt (201 + kayıt var +
+e-posta normalize), geçersiz e-posta (400 + kayıt yok), alan uzunlukları,
+geçersiz service, bilinmeyen alan / yanlış Content-Type (415) / 16 KB üstü
+body, DB arızası (500, başarı yok), rate limit (429), yabancı Origin (403),
+TRUST_PROXY kapalı/açık, limiter temizliği, `/healthz`, `/api/status` (sayaç 0→1).
 
-Elle uçtan uca:
+## Deploy: Supabase + Vercel (kullanıcı yapacak)
+
+Kimlik bilgisi bende yok; adımlar kullanıcının çalıştıracağı şekilde:
 
 ```sh
-curl -X POST localhost:8080/api/requests -H 'Content-Type: application/json' \
-  -d '{"name":"Deneme","email":"a@b.co","service":"backup","message":"Yedek kurulumu istiyorum."}'
-# {"ok":true} + HTTP 201, ardından sqlite3 ile kontrol
+# 1. Supabase: app.supabase.com > New project (Free) > SQL Editor'da
+#    supabase/migrations/001_create_requests.sql içeriğini çalıştır.
+#    Project Settings > Database > Connection string (pooler, 6543) + şifreyi al.
+# 2. Vercel: import repo > Environment Variables:
+#    DATABASE_URL=<pooler string>, SIMPLE_PROTOCOL=1, TRUST_PROXY=1
+#    Deploy. Statik site web/'den, fonksiyonlar api/'den otomatik gelir.
+# 3. Canlı doğrulama:
+#    a. Canlı URL'den formu gönder → başarı mesajı + "Canlı durum" sayacı +1
+#    b. Supabase Table Editor'de kaydı gör
+#    c. Geçersiz e-postayla gönder → 400 ve kayıt yok
 ```
 
-## Deploy (kullanıcı yapacak)
-
-Ev sunucusu + Cloudflare Tunnel önerilir (alternatif: Fly.io/Render, kalıcı
-volume şart). Kimlik bilgisi/SSH bende yok; adımlar kullanıcının çalıştıracağı
-şekilde:
-
-```sh
-# 1. Sunucuda:
-git clone <repo> opadm && cd opadm
-docker compose up -d --build
-# 2. Tunnel: cloudflared ile localhost:8080'i canlı host'a bağla
-#    (örn. cloudflared tunnel --url http://localhost:8080)
-# 3. Canlı doğrulama (checklist):
-#    a. Canlı URL'yi aç, formu doldurup gönder → başarı mesajı
-#    b. Sunucuda: sqlite3 /var/lib/docker/volumes/opadm_opadm-data/_data/requests.db "SELECT * FROM requests;"
-#       (compose volume yolu değişebilir: docker volume inspect opadm_opadm-data)
-#    c. docker compose restart opadm → kayıt hâlâ duruyor mu kontrol et
-#    d. Geçersiz e-postayla gönder → 400 ve kayıt yok
-```
-
-Docker'sız seçenek: `opadm.service` dosyasındaki komutlarla systemd kurulumu.
+Alternatif (yerel/ev sunucusu): `docker compose up -d --build` — app +
+postgres birlikte ayağa kalkar. `opadm.service` systemd örneği de duruyor
+(`DATABASE_URL` doldurularak kullanılır).
 
 ## API sözleşmesi
 
@@ -114,50 +123,48 @@ Docker'sız seçenek: `opadm.service` dosyasındaki komutlarla systemd kurulumu.
 {"ok":true,"time":"2026-10-13T13:52:11Z","uptime_s":1,"requests_total":1,
  "host":"a1b2c3d4e5f6","in_docker":true,"go":"go1.26.0","goroutines":5,"cpu":24,"mem_alloc_mb":3}
 ```
-// `host` Docker'da kısa container ID'dir; `in_docker` `/.dockerenv` varlığına
-// bakılarak üretilir. Yeni alanlar eklenirse aşağıdaki test listesine işlenir.
 
-Kurallar: name 2-80, email regex + ≤254 (küçük harfe normalize), service
+Kurallar: name 2-80, email format + ≤254 (küçük harfe normalize), service
 allowlist, message 10-1000. Limit: 16 KB body; bilinmeyen alan reddedilir.
+DB tarafında aynı kurallar CHECK constraint olarak da var (ikinci savunma).
 
 ## Güvenlik notları
 
-- Parametrik sorgu (SQL injection yok); ham IP saklanmaz, SHA-256 özeti (`ip_hash`) tutulur.
+- Parametrik sorgu (`$1..`, SQL injection yok); ham IP saklanmaz, SHA-256 özeti (`ip_hash`) tutulur.
 - `http.MaxBytesReader` (16 KB), Content-Type zorunluluğu, `DisallowUnknownFields`.
+- Origin/Referer Host eşleşmesi (yabancı kaynak 403).
 - Başarı yalnızca INSERT commit sonrası 201; DB hatasında 500 + genel mesaj, iç detay sızdırılmaz.
 - Başlıklar: CSP (same-origin), X-Content-Type-Options, X-Frame-Options DENY, Referrer-Policy.
-- Sunucu timeout'ları (ReadHeader/Read/Write/Idle); panic recovery middleware.
-- Rate limit: IP başına 10 istek/dakika, in-memory (restart'ta sıfırlanır, tek instance).
-- Kayıt listeleme endpoint'i yok; kullanıcı verisi DOM'a hep `textContent` ile basılır.
+- Sunucu timeout'ları (binary'de); panic recovery middleware.
+- Rate limit: IP başına 10 istek/dakika, instance-içi in-memory (Vercel'de instance başına).
+- Supabase'te RLS açık, anon politikası yok: yazma yalnızca service_role anahtarlı backend'den.
+- Secret'lar repoda yok (`.env` gitignore'da); kayıt listeleme endpoint'i yok; DOM'a hep `textContent`.
+- Pooler transaction mode + simple protocol: prepare'sız sorgu, havuz dostu.
 
 ## Bilinen eksikler
 
-- CSRF: Origin/Referer Host eşleşmesi aranır (yabancı kaynak 403). Token yok;
-  tarayıcı POST'ta Origin'i her zaman gönderdiği için klasik CSRF kesilir,
-  başlıksız curl trafiği kırılmaz.
-- Rate limit in-memory: restart'ta sıfırlanır, çok instance'ta çalışmaz.
-  Süresi dolan girdiler Allow anında + 5 dk janitor ile silinir.
-- TRUST_PROXY=0 iken proxy başlıkları yoksayılır; `1` yalnızca Cloudflare
-  Tunnel gibi başlıkları ezen proxy arkasında açılır (compose'da açık,
-  systemd örneğinde kapalı).
-- E-posta onayı yok (sadece format kontrolü; SMTP altyapısı gerektirir, bilerek eklenmedi).
-- E-posta onayı yok (sadece format kontrolü), admin panel yok (kontrol `sqlite3` ile), IP hash tuzsuz SHA-256.
-- SQLite `MaxOpenConns(1)`: düşük trafik için doğru, ölçeklenmez. TLS uygulamada yok, tunnel'a (Cloudflare) emanet.
+- CSRF token yok (Origin kontrolü var; klasik CSRF kesilir, başlıksız curl kırılmaz).
+- Rate limit instance-içi: Vercel'de instance başına çalışır; dağıtık limit Redis ister (bilerek eklenmedi).
+- TRUST_PROXY=1 sahte başlığa açıktır; yalnızca başlıkları ezen proxy (Vercel/Cloudflare) arkasında açılır.
+- E-posta onayı yok (SMTP altyapısı ister), admin panel yok (Supabase Table Editor kullanılır), IP hash tuzsuz.
+- Vercel'de soğuk başlatma gecikmesi olabilir; uptime sayacı instance ömrü kadardır.
+- `MaxOpenConns(5)`: küçük havuz, pooler arkasında bilinçli tercih.
 
 ## Varsayımlar
 
-- Değerlendirme rehberi (`ai.enteksis.com.tr/degerlendirme-rehberi.md`) okundu; brief ile çelişki bulunamadı (rehber: tek commit geçerli, hata uydurulması beklenmez, görüşmede kod anlatımı + küçük değişiklik).
-- Repo/modül adı `opadm`; ürün adı da sayfada `opadm` (kullanıcı kararı).
-- "Ortalama 2 iş günü yanıt" somut, doğrulanabilir olmayan vaat içermeyen bir taahhüt olarak yazıldı.
+- Değerlendirme rehberi okundu. Mimari değişikliği kullanıcı kararıdır; brief'in
+  Go+SQLite şartından sapma bilinçlidir ve burada + AI_LOG'da açık yazılmıştır.
+- "Ortalama 2 iş günü yanıt" somut, doğrulanamaz vaat içermeyen bir taahhüt olarak yazıldı.
 - Süre hedefi 3-4 saat aktif emek; gerçek süre AI_LOG'da tahmini işaretli.
 
 ## Kaynaklar
 
-- Kütüphane: `modernc.org/sqlite` (CGO'suz SQLite sürücüsü). Başka bağımlılık yok.
+- Kütüphane: `github.com/jackc/pgx/v5` (Postgres sürücüsü). Eski `modernc.org/sqlite` kaldırıldı.
 - Şablon/hazır tema kullanılmadı; HTML/CSS/JS el yazımı.
 
 ## AI ile nasıl çalışıldı (özet)
 
-Ayrıntı: [AI_LOG.md](./AI_LOG.md). Özet: iskelet ve kod AI (OpenCode/Muse Spark)
-tarafından yazıldı, stack/ürün/deploy kararları kullanıcıdan; `go vet` + `go test
--race` + curl/sqlite3 ile doğrulandı.
+Ayrıntı: [AI_LOG.md](./AI_LOG.md). Özet: kod AI (OpenCode/Muse Spark) tarafından
+yazıldı, tüm mimari/deploy kararları kullanıcıdan (opadm adı, Docker, Vercel +
+Supabase'e geçiş dahil); `go vet` + `go test -race` ile doğrulandı, canlı
+Supabase/Vercel doğrulaması kullanıcıda.

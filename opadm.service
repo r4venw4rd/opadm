@@ -2,8 +2,8 @@
 # Kurulum (kullanıcı yapacak):
 #   sudo cp opadm.service /etc/systemd/system/opadm.service
 #   sudo useradd -r -s /usr/sbin/nologin opadm 2>/dev/null || true
-#   sudo mkdir -p /var/lib/opadm && sudo chown opadm:opadm /var/lib/opadm
 #   sudo systemctl daemon-reload && sudo systemctl enable --now opadm
+# Not: DATABASE_URL=... satırını Supabase (ya da yerel postgres) değerinle doldur.
 [Unit]
 Description=opadm landing + talep formu
 After=network.target
@@ -11,7 +11,8 @@ After=network.target
 [Service]
 User=opadm
 Environment=PORT=8080
-Environment=DB_PATH=/var/lib/opadm/requests.db
+Environment=DATABASE_URL=postgres://opadm:opadm@localhost:5432/opadm?sslmode=disable
+Environment=TRUST_PROXY=0
 ExecStart=/usr/local/bin/opadm
 Restart=on-failure
 

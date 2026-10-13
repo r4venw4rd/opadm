@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/mail"
@@ -19,9 +20,20 @@ import (
 
 const maxBodyBytes = 16 * 1024 // 16 KB: form için fazlasıyla yeter, şişkin body'yi keser
 
+var errNoDatabaseURL = errors.New("DATABASE_URL yok")
+
+// Store, handler'ın DB'den beklediği dar arayüzdür. Gerçek: Postgres,
+// testler: fake. Böylece `go test` DB'siz koşar.
+type Store interface {
+	Insert(name, email, service, message, ipHash string) (int64, error)
+	Ping() error
+	Count() (int, error)
+	Close() error
+}
+
 // App, bağımlılıkları tek struct'ta toplar (mülakatta anlatması kolay olsun diye).
 type App struct {
-	Store   *store.Store
+	Store   Store
 	Limiter *ratelimit.Limiter
 	// TrustProxy kapalıyken proxy başlıkları okunmaz (güvenli varsayılan).
 	// Yalnızca Cloudflare Tunnel gibi başlıkları ezen bir proxy arkasındayken
@@ -31,8 +43,25 @@ type App struct {
 	Started time.Time
 }
 
-func New(s *store.Store, l *ratelimit.Limiter, trustProxy bool, started time.Time) *App {
+func New(s Store, l *ratelimit.Limiter, trustProxy bool, started time.Time) *App {
 	return &App{Store: s, Limiter: l, TrustProxy: trustProxy, Started: started}
+}
+
+// NewFromEnv, main.go ve Vercel fonksiyonlarının ortak kurulumudur:
+// env'den DB'ye bağlanır, limiter + janitor hazırlar.
+func NewFromEnv() (*App, error) {
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		return nil, errNoDatabaseURL
+	}
+	st, err := store.Open(url, os.Getenv("SIMPLE_PROTOCOL") == "1")
+	if err != nil {
+		return nil, err
+	}
+	limiter := ratelimit.New(10, time.Minute)
+	never := make(chan struct{}) // süreç ömrü: janitor kapanmaz
+	go limiter.StartJanitor(5*time.Minute, never)
+	return New(st, limiter, os.Getenv("TRUST_PROXY") == "1", time.Now()), nil
 }
 
 // request, forma birebir uyar; bilinmeyen alan json.Decoder ile reddedilir.

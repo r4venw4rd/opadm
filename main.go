@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"opadm/internal/handler"
-	"opadm/internal/ratelimit"
-	"opadm/internal/store"
 )
 
 //go:embed web
@@ -50,22 +48,12 @@ func recoverPanic(next http.Handler) http.Handler {
 
 func main() {
 	port := env("PORT", "8080")
-	dbPath := env("DB_PATH", "./data/requests.db")
-	// TRUST_PROXY=1 yalnızca başlıkları ezen bir proxy (Cloudflare Tunnel)
-	// arkasındayken açılır; yoksa sahte X-Forwarded-For'a kanılır.
-	trustProxy := env("TRUST_PROXY", "0") == "1"
 
-	st, err := store.Open(dbPath)
+	app, err := handler.NewFromEnv()
 	if err != nil {
-		log.Fatalf("db open: %v", err)
+		log.Fatalf("setup: %v", err)
 	}
-	defer st.Close()
-
-	// 10 istek/dakika/IP; restart'ta sıfırlanır, tek instance (bkz. README).
-	limiter := ratelimit.New(10, time.Minute)
-	never := make(chan struct{}) // süreç ömrü: janitor kapanmaz
-	go limiter.StartJanitor(5*time.Minute, never)
-	app := handler.New(st, limiter, trustProxy, time.Now())
+	defer app.Store.Close()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/requests", app.Create)
@@ -84,6 +72,6 @@ func main() {
 		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	log.Printf("opadm listening on :%s (db=%s)", port, dbPath)
+	log.Printf("opadm listening on :%s (trustProxy=%v)", port, app.TrustProxy)
 	log.Fatal(srv.ListenAndServe())
 }

@@ -2,67 +2,56 @@ package store
 
 import (
 	"database/sql"
-	"os"
-	"path/filepath"
 
-	_ "modernc.org/sqlite"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
-// Store, taleplerin SQLite kalıcılığıdır.
+// Store, taleplerin Postgres (Supabase) kalıcılığıdır.
+// Şema repo'daki migration ile kurulur; burada DDL yok.
 type Store struct {
 	db *sql.DB
 }
 
-// Open, dizini oluşturur, bağlanır ve şemayı hazırlar.
-func Open(path string) (*Store, error) {
-	if dir := filepath.Dir(path); dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return nil, err
-		}
-	}
-	db, err := sql.Open("sqlite", path)
+// Open, connStr ile bağlanır. Supabase pooler (6543, transaction mode)
+// server-side prepare'a izin vermez; o yüzden simpleProtocol=1 ile
+// simple protocol zorlanır (Vercel'de şart, doğrudan bağlantıda zararsız).
+func Open(connStr string, simpleProtocol bool) (*Store, error) {
+	cfg, err := pgx.ParseConfig(connStr)
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1) // SQLite yazma kilitlenmesini basit tutar
-	s := &Store{db: db}
-	if err := s.migrate(); err != nil {
+	if simpleProtocol {
+		cfg.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	}
+	db := stdlib.OpenDB(*cfg)
+	db.SetMaxOpenConns(5) // serverless + pooler dostu küçük havuz
+	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, err
 	}
-	return s, nil
-}
-
-func (s *Store) migrate() error {
-	_, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS requests (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		email TEXT NOT NULL,
-		service TEXT NOT NULL,
-		message TEXT NOT NULL,
-		ip_hash TEXT,
-		created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-	)`)
-	return err
+	return &Store{db: db}, nil
 }
 
 // Insert, doğrulanmış bir talebi tek parametrik sorguyla yazar.
-// Tablo yoksa/kapalıysa hata döner; çağıran bunu 500 yapar, asla başarı göstermez.
+// Hata döner; çağıran bunu 500 yapar, asla başarı göstermez.
 func (s *Store) Insert(name, email, service, message, ipHash string) (int64, error) {
-	res, err := s.db.Exec(
-		`INSERT INTO requests (name, email, service, message, ip_hash) VALUES (?, ?, ?, ?, ?)`,
+	var id int64
+	err := s.db.QueryRow(
+		`INSERT INTO requests (name, email, service, message, ip_hash)
+		 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		name, email, service, message, ipHash,
-	)
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	return id, nil
 }
 
 // Ping, /healthz için DB'ye gerçekten dokunur.
 func (s *Store) Ping() error { return s.db.Ping() }
 
-// Count, testlerin kaydı doğrulaması içindir.
+// Count, testlerin ve /api/status sayacının kaydı doğrulaması içindir.
 func (s *Store) Count() (int, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM requests`).Scan(&n)

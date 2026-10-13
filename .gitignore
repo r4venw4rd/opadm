@@ -3,3 +3,6 @@ data/
 *.db-*
 opadm
 /opadm
+.env
+.env.*
+!.env.example

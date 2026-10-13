@@ -5,10 +5,27 @@ services:
       - "127.0.0.1:8080:8080" # dışa yalnız tunnel/proxy üzerinden aç
     environment:
       PORT: "8080"
-      DB_PATH: "/data/requests.db"
-      TRUST_PROXY: "1" # cloudflared başlıkları ezer; doğrudan exposure'da 0 bırak
+      DATABASE_URL: "postgres://opadm:opadm@db:5432/opadm?sslmode=disable"
+      TRUST_PROXY: "1" # compose'da proxy arkası varsayılır; doğrudan exposure'da 0 bırak
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: opadm
+      POSTGRES_PASSWORD: opadm
+      POSTGRES_DB: opadm
     volumes:
-      - opadm-data:/data # kalıcı volume şart: kayıplar önlenir
+      - opadm-data:/var/lib/postgresql/data
+      - ./supabase/migrations/001_create_requests.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opadm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
 volumes:

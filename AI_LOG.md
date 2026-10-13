@@ -13,8 +13,13 @@
 - **Kullanıcı kararları (konuşmada gerçekten verilen):** repo/proje adı `opadm`;
   ürün sayfadaki adın da NöbetçiOps değil `opadm` olması; Go + SQLite + vanilla JS
   stack'i, 3 hizmet (backup/monitoring/hardening), ev sunucusu + Cloudflare Tunnel
-  deploy yolu (hepsi görev brief'inden); ayrıca sonraki oturumda açıkça istenen
-  **Docker ile deploy kararı** ("dockerize etsene").
+  deploy yolu (hepsi görev brief'inden); ayrıca sonraki oturumlarda açıkça istenen
+  **Docker ile deploy kararı** ("dockerize etsene"), **"Canlı durum" demosu**
+  ("docker üzerinden reel demo, sistem bilgileri çeken demomsu şey") ve
+  **Vercel + Supabase'e geçiş** ("vercel gibi bi yere deploy edicez, database
+  supabase olacak"). Son karar brief'in Go+SQLite şartından bilinçli sapmadır;
+  AI önce brief'e bağlı kalmayı savundu (gerekçesi raporda), kullanıcı ısrar
+  edince uyguladı.
 - **AI yazdı:** `main.go`, `internal/{store,handler,ratelimit}`, testler,
   `web/{index.html,app.js,style.css}`, Dockerfile/compose/systemd, README, bu dosya.
 - **Kullanıcı seçimi/kararı bu oturumda ayrıca istenmedi** (brief "sormadan makul
@@ -26,6 +31,7 @@
 1. Görev brief'i (Türkçe, 11 bölüm) — tüm gereksinimler.
 2. "projenin adı opadm btw" — modül/repo adı.
 3. "sayfada nöbetçiops olarak kalmasın, replace nöbetçiops with opadm" — ürün adı da opadm.
+4. "dockerize etsene" + "canlı durum demosu" + "Vercel + Supabase" — kullanıcı kararları (yukarıda).
 
 ## Kabul / değiştirilen / reddedilen öneriler
 
@@ -97,8 +103,11 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
 ## Bilinen riskler/eksikler
 
 README'deki "Bilinen eksikler" bölümüyle aynıdır (güncel): CSRF token yerine
-Origin kontrolü, janitor'lu in-memory limit, TRUST_PROXY, e-posta onayı yok,
-yönetim paneli yok, tuzsuz IP hash, MaxOpenConns(1), TLS tunnel'a emanet.
+Origin kontrolü, instance-içi limit (Vercel'de instance başına), TRUST_PROXY,
+e-posta onayı yok, admin panel yok (Table Editor), tuzsuz IP hash, küçük havuz,
+soğuk başlatma. Ek risk: brief Go+SQLite istiyordu, teslim Supabase Postgres'li;
+değerlendirici bunu sapma sayabilir — karar ve gerekçe kullanıcıya aittir,
+burada açık yazılmıştır.
 
 ## Süre
 
@@ -111,5 +120,7 @@ yönetim paneli yok, tuzsuz IP hash, MaxOpenConns(1), TLS tunnel'a emanet.
 - Kodun tamamı bu oturumda AI tarafından üretildi; kullanıcı kod yazmadı/değiştirmedi.
 - Kullanıcı kararları yalnızca yukarıda listelenenlerdir; söylenmemiş düşünce
   kullanıcıya atfedilmedi.
-- Test çıktıları gerçektir, uydurma sonuç yok. Canlı deploy yapılmadı (erişim yok);
-  deploy adımları kullanıcının çalıştıracağı komutlar olarak README'de.
+- Test çıktıları gerçektir, uydurma sonuç yok. Canlı Supabase/Vercel doğrulaması
+  yapılmadı (hesap/erişim yok); adımlar kullanıcının çalıştıracağı komutlar
+  olarak README'de. Birim testler fake store ile DB'siz yeşil; entegrasyon
+  testi TEST_DATABASE_URL ile kullanıcıda koşacak şekilde kapılı.
