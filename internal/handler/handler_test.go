@@ -15,12 +15,17 @@ import (
 
 func newTestApp(t *testing.T, max int) *App {
 	t.Helper()
+	return newTestAppTrust(t, max, false)
+}
+
+func newTestAppTrust(t *testing.T, max int, trustProxy bool) *App {
+	t.Helper()
 	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	return New(st, ratelimit.New(max, time.Minute))
+	return New(st, ratelimit.New(max, time.Minute), trustProxy)
 }
 
 func postJSON(t *testing.T, app *App, body string, ctype string) *httptest.ResponseRecorder {
@@ -163,5 +168,56 @@ func TestHealthz(t *testing.T) {
 	app.Health(rec, req)
 	if rec.Code != 500 {
 		t.Fatalf("kapalı DB'de healthz 500 bekleniyordu: %d", rec.Code)
+	}
+}
+
+func postWithOrigin(t *testing.T, app *App, origin string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/api/requests", strings.NewReader(validBody()))
+	req.Header.Set("Content-Type", "application/json")
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	rec := httptest.NewRecorder()
+	app.Create(rec, req)
+	return rec
+}
+
+func TestCSRFOrigin(t *testing.T) {
+	app := newTestApp(t, 100)
+	// Saldırgan origin'i -> 403, kayıt yok.
+	rec := postWithOrigin(t, app, "https://kotusu.ornek")
+	if rec.Code != 403 {
+		t.Fatalf("yabancı Origin: kod = %d, istendi 403", rec.Code)
+	}
+	// Origin yok (curl) -> 201.
+	if rec := postWithOrigin(t, app, ""); rec.Code != 201 {
+		t.Fatalf("originsiz: kod = %d, istendi 201", rec.Code)
+	}
+	// Eşleşen Origin -> 201. httptest isteği example.com host'undadır.
+	if rec := postWithOrigin(t, app, "http://example.com"); rec.Code != 201 {
+		t.Fatalf("eşleşen Origin: kod = %d, istendi 201", rec.Code)
+	}
+	if n, _ := app.Store.Count(); n != 2 {
+		t.Fatalf("DB'de 2 kayıt bekleniyordu, n=%d", n)
+	}
+}
+
+func TestTrustProxyDefaultOff(t *testing.T) {
+	app := newTestApp(t, 100) // TrustProxy kapalı
+	req := httptest.NewRequest("POST", "/api/requests", strings.NewReader(validBody()))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-For", "6.6.6.6")
+	rec := httptest.NewRecorder()
+	app.Create(rec, req)
+	if rec.Code != 201 {
+		t.Fatalf("kod = %d, istendi 201", rec.Code)
+	}
+	// Başlık yoksayıldı: hash, RemoteAddr'ın (192.0.2.1) olmalı.
+	if got := clientIP(req, false); got != "192.0.2.1" {
+		t.Fatalf("clientIP = %q, istendi 192.0.2.1", got)
+	}
+	if got := clientIP(req, true); got != "6.6.6.6" {
+		t.Fatalf("trust açıkken clientIP = %q, istendi 6.6.6.6", got)
 	}
 }

@@ -6,6 +6,7 @@ services:
     environment:
       PORT: "8080"
       DB_PATH: "/data/requests.db"
+      TRUST_PROXY: "1" # cloudflared başlıkları ezer; doğrudan exposure'da 0 bırak
     volumes:
       - opadm-data:/data # kalıcı volume şart: kayıplar önlenir
     restart: unless-stopped

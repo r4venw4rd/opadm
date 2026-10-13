@@ -51,6 +51,9 @@ func recoverPanic(next http.Handler) http.Handler {
 func main() {
 	port := env("PORT", "8080")
 	dbPath := env("DB_PATH", "./data/requests.db")
+	// TRUST_PROXY=1 yalnızca başlıkları ezen bir proxy (Cloudflare Tunnel)
+	// arkasındayken açılır; yoksa sahte X-Forwarded-For'a kanılır.
+	trustProxy := env("TRUST_PROXY", "0") == "1"
 
 	st, err := store.Open(dbPath)
 	if err != nil {
@@ -59,7 +62,10 @@ func main() {
 	defer st.Close()
 
 	// 10 istek/dakika/IP; restart'ta sıfırlanır, tek instance (bkz. README).
-	app := handler.New(st, ratelimit.New(10, time.Minute))
+	limiter := ratelimit.New(10, time.Minute)
+	never := make(chan struct{}) // süreç ömrü: janitor kapanmaz
+	go limiter.StartJanitor(5*time.Minute, never)
+	app := handler.New(st, limiter, trustProxy)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/requests", app.Create)

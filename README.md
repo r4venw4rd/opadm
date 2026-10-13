@@ -40,10 +40,11 @@ sqlite3 ./data/requests.db "SELECT id,name,email,service,created_at FROM request
 
 ## Env değişkenleri
 
-| Ad      | Varsayılan            |
-|---------|-----------------------|
-| PORT    | 8080                  |
-| DB_PATH | ./data/requests.db    |
+| Ad          | Varsayılan         | Açıklama                                                    |
+|-------------|--------------------|-------------------------------------------------------------|
+| PORT        | 8080               | Dinlenecek port                                             |
+| DB_PATH     | ./data/requests.db | SQLite dosya yolu                                           |
+| TRUST_PROXY | 0                  | `1` ise proxy başlıklarına güven (yalnızca tunnel arkası)   |
 
 ## Test
 
@@ -56,7 +57,8 @@ go test -race ./...
 Kapsananlar: geçerli kayıt (201 + DB'de var), geçersiz e-posta (400 + kayıt yok),
 alan uzunlukları (400 + alan adı), geçersiz service, bilinmeyen alan / yanlış
 Content-Type (415) / 16 KB üstü body (4xx), kapalı DB (500, başarı yok),
-rate limit (429), `/healthz` (açık DB 200, kapalı DB 500).
+rate limit (429), yabancı Origin (403), TRUST_PROXY kapalı/açık IP seçimi,
+limiter temizliği (janitor), `/healthz` (açık DB 200, kapalı DB 500).
 
 Elle uçtan uca:
 
@@ -99,7 +101,7 @@ Docker'sız seçenek: `opadm.service` dosyasındaki komutlarla systemd kurulumu.
 {"ok":true}
 // yanıt 400
 {"ok":false,"errors":{"email":"Geçerli bir e-posta adresi yazın."}}
-// yanıt 429 / 500
+// yanıt 403 (yabancı Origin/Referer) / 429 / 500
 {"ok":false,"error":"...genel mesaj..."}
 ```
 
@@ -120,9 +122,15 @@ allowlist, message 10-1000. Limit: 16 KB body; bilinmeyen alan reddedilir.
 
 ## Bilinen eksikler
 
-- CSRF token yok (JSON-only + Content-Type kontrolü + same-origin ile kısmen hafifletildi).
-- Rate limit in-memory: restart'ta sıfırlanır, çok instance'ta çalışmaz; süresi dolan IP'lerin boş map girdileri temizlenmiyor (uzun çalışmada yavaş bellek büyümesi).
-- Proxy IP başlıklarına (`CF-Connecting-IP`, `X-Forwarded-For`) güveniyor; sahte başlıkla limit atlatılabilir.
+- CSRF: Origin/Referer Host eşleşmesi aranır (yabancı kaynak 403). Token yok;
+  tarayıcı POST'ta Origin'i her zaman gönderdiği için klasik CSRF kesilir,
+  başlıksız curl trafiği kırılmaz.
+- Rate limit in-memory: restart'ta sıfırlanır, çok instance'ta çalışmaz.
+  Süresi dolan girdiler Allow anında + 5 dk janitor ile silinir.
+- TRUST_PROXY=0 iken proxy başlıkları yoksayılır; `1` yalnızca Cloudflare
+  Tunnel gibi başlıkları ezen proxy arkasında açılır (compose'da açık,
+  systemd örneğinde kapalı).
+- E-posta onayı yok (sadece format kontrolü; SMTP altyapısı gerektirir, bilerek eklenmedi).
 - E-posta onayı yok (sadece format kontrolü), admin panel yok (kontrol `sqlite3` ile), IP hash tuzsuz SHA-256.
 - SQLite `MaxOpenConns(1)`: düşük trafik için doğru, ölçeklenmez. TLS uygulamada yok, tunnel'a (Cloudflare) emanet.
 

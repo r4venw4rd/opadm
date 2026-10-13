@@ -75,14 +75,21 @@ E2E Deneme|e2e@ornek.com|monitoring|Izleme kurulumu icin deneme talebidir.
   builder stage'e taşındı, `--chown=65532:65532` ile kopyalandı. İmaj build,
   compose up, `201` kaydı ve restart sonrası kalıcılık kullanıcı tarafından
   doğrulandı (yeşil; volume'da `id=1` kaydı görüldü).
+- Kullanıcı "eksikleri de çöz" dedi. Çözülenler: Origin/Referer same-origin
+  kontrolü (403), limiter boş-girdi temizliği + 5 dk janitor, TRUST_PROXY env
+  (varsayılan kapalı). Çözülmeyenler (gerekçeli): admin panel (brief kamuya açık
+  listelemeyi yasaklıyor, PII riski), e-posta onayı (SMTP altyapısı ister),
+  MX kontrolü (DNS'e bağımlı, fail-open anlamsız olurdu). `go vet` + `go test
+  -race` yeşil (handler 11 + ratelimit 2 test).
 - Başka hata bulunamadı. Test senaryoları ilk çalışmada geçti; "düzelttim" hikayesi
   uydurulmadı. DB-hatası (500, başarı yok) ve rate limit (429) davranışları test +
   kod incelemesiyle doğrulandı.
 
 ## Bilinen riskler/eksikler
 
-README'deki "Bilinen eksikler" bölümüyle aynıdır: CSRF token yok, in-memory limit,
-proxy başlık güveni, e-posta doğrulaması yok, yönetim paneli yok, tuzsuz IP hash.
+README'deki "Bilinen eksikler" bölümüyle aynıdır (güncel): CSRF token yerine
+Origin kontrolü, janitor'lu in-memory limit, TRUST_PROXY, e-posta onayı yok,
+yönetim paneli yok, tuzsuz IP hash, MaxOpenConns(1), TLS tunnel'a emanet.
 
 ## Süre
 

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/mail"
+	"net/url"
 	"strings"
 
 	"opadm/internal/ratelimit"
@@ -19,9 +20,15 @@ const maxBodyBytes = 16 * 1024 // 16 KB: form için fazlasıyla yeter, şişkin 
 type App struct {
 	Store   *store.Store
 	Limiter *ratelimit.Limiter
+	// TrustProxy kapalıyken proxy başlıkları okunmaz (güvenli varsayılan).
+	// Yalnızca Cloudflare Tunnel gibi başlıkları ezen bir proxy arkasındayken
+	// TRUST_PROXY=1 ile açılır (bkz. README).
+	TrustProxy bool
 }
 
-func New(s *store.Store, l *ratelimit.Limiter) *App { return &App{Store: s, Limiter: l } }
+func New(s *store.Store, l *ratelimit.Limiter, trustProxy bool) *App {
+	return &App{Store: s, Limiter: l, TrustProxy: trustProxy}
+}
 
 // request, forma birebir uyar; bilinmeyen alan json.Decoder ile reddedilir.
 type request struct {
@@ -64,16 +71,19 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// clientIP, proxy başlıklarını okur. Cloudflare Tunnel gibi güvenilir
-// proxy varsayımına dayanır; sahte başlık riski README'de not edildi.
+// clientIP, güvenilir proxy yoksa RemoteAddr'ı kullanır. Başlıklara güvenmek
+// sahte başlıkla limit atlatmaya izin verirdi; bu yüzden TRUST_PROXY=1
+// olmadan CF-Connecting-IP/X-Forwarded-For okunmaz.
 // Yalnızca rate limit + ip_hash içindir, kimlik doğrulama için kullanılmaz.
-func clientIP(r *http.Request) string {
-	if ip := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); ip != "" {
-		return ip
-	}
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if first, _, _ := strings.Cut(xff, ","); strings.TrimSpace(first) != "" {
-			return strings.TrimSpace(first)
+func clientIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if ip := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); ip != "" {
+			return ip
+		}
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			if first, _, _ := strings.Cut(xff, ","); strings.TrimSpace(first) != "" {
+				return strings.TrimSpace(first)
+			}
 		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -81,6 +91,28 @@ func clientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// sameOrigin, tarayıcı tabanlı CSRF'yi keser: saldırganın sayfasından gelen
+// POST'ta Origin/Referer saldırganın host'unu taşır, Host ile eşleşmez.
+// Başlıksız istekler (curl gibi tarayıcı-dışı istemciler) kabul edilir;
+// tarayıcı POST'ta Origin'i her zaman gönderir, o yüzden bu kontrol
+// gerçek CSRF'yi yakalar, meşru trafiği kırmaz.
+func sameOrigin(r *http.Request) bool {
+	for _, h := range []string{"Origin", "Referer"} {
+		v := strings.TrimSpace(r.Header.Get(h))
+		if v == "" {
+			continue
+		}
+		u, err := url.Parse(v)
+		if err != nil || u.Host == "" {
+			return false
+		}
+		if !strings.EqualFold(u.Host, r.Host) {
+			return false
+		}
+	}
+	return true
 }
 
 // hashIP, ham IP'yi saklamak yerine SHA-256 özetini saklar (KVKK temkinliliği).
@@ -98,7 +130,13 @@ func (a *App) Create(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	ip := clientIP(r)
+	ip := clientIP(r, a.TrustProxy)
+	if !sameOrigin(r) {
+		writeJSON(w, http.StatusForbidden, map[string]any{
+			"ok": false, "error": "Geçersiz istek kaynağı.",
+		})
+		return
+	}
 	if !a.Limiter.Allow(ip) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]any{
 			"ok": false, "error": "Çok fazla istek gönderdiniz. Bir dakika sonra tekrar deneyin.",
